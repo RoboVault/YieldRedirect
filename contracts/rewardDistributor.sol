@@ -33,6 +33,7 @@ abstract contract rewardDistributor is ReentrancyGuard {
     uint256 public epoch = 0;
     uint256 public lastEpoch;
     uint256 public timePerEpoch = 1; // 
+    uint256 constant timePerEpochLimit = 259200;
     //uint256 public timePerEpoch = 86400;
     uint256 public timeForKeeperToConvert = 3600;
 
