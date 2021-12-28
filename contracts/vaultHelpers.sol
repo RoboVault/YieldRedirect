@@ -96,12 +96,16 @@ abstract contract helpers is Ownable {
     }
 
     function _unlockUnderlying() internal {
-        Ivault(vaultAddress).withdraw();
+        IERC20 vaultToken = IERC20(vaultAddress);
+        uint256 vaultTokens = vaultToken.balanceOf(address(this));
+ 
+        Ivault(vaultAddress).withdraw(vaultTokens);
     }
 
     function vaultBalance() public view returns(uint256){
         IERC20 vaultToken = IERC20(vaultAddress);
-        uint256 vaultBPS = Ivault(vaultAddress).decimals(); 
+        uint256 vaultDecimals = Ivault(vaultAddress).decimals(); 
+        uint256 vaultBPS = 10**vaultDecimals;
         uint256 bal = vaultToken.balanceOf(address(this)).mul(Ivault(vaultAddress).pricePerShare()).div(vaultBPS);
         return(bal);
     }

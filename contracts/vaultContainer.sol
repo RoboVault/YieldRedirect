@@ -61,6 +61,7 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
         base.approve(vaultAddress, uint(-1));
         base.approve(router, uint(-1));
         weth = _weth;
+        rewards = owner();
 
     }
 

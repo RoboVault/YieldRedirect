@@ -3,7 +3,7 @@ pragma solidity >=0.6.0 <0.7.0;
 
 interface Ivault {
     function deposit(uint256 amount) external;
-    function withdraw() external; 
+    //function withdraw() external; 
     function withdraw(uint256 maxShares) external;
     function withdrawAll() external; 
     function pricePerShare() external view returns (uint256);  
