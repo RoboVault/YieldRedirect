@@ -35,6 +35,7 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
     using SafeMath for uint256;
 
     IERC20 public base;
+    IERC20 public swapToken;
 
     uint256 public profitFee = 300; // 3% default
     uint256 constant profitFeeMax = 1000; // 10%
@@ -43,13 +44,15 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
     // amount of profit converted each Epoch (don't convert everything to smooth returns)
     uint256 public profitConversionPercent = 5000; // 50% default 
     uint256 public minProfitThreshold; // minimum amount of profit in order to conver to target token
-    address public rewards; 
+    address public feeToAddress; 
+    bool public useTargetVault;
 
     constructor(
         string memory _name, 
         string memory _symbol,
         address _base,
         address _targetToken,
+        address _swapToken,
         address _vault,
         address _router,
         address _weth
@@ -57,12 +60,14 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
     ) public ERC20(_name, _symbol) {
         base = IERC20(_base);
         targetToken = IERC20(_targetToken);
+        swapToken = IERC20(_swapToken);
+        useTargetVault = _targetToken == _swapToken;
         vaultAddress = _vault;
         router = _router;
         base.approve(vaultAddress, uint(-1));
         base.approve(router, uint(-1));
         weth = _weth;
-        rewards = owner();
+        feeToAddress = owner();
 
     }
 
@@ -190,7 +195,8 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
 
         // only convert profits if there is sufficient profit & users are eligible to start receiving rewards this epoch
         if (sufficientProfits && depositorsEligible){
-            _swapToTarget(profits);
+            _redirectProfits(profits);
+            _depositSwapToTargetVault();
         }
         _updateRewardData(preSwapBalance);
         _updateEpoch();
@@ -204,7 +210,7 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
         return((block.timestamp >= lastEpoch.add(timePerEpoch.add(timeForKeeperToConvert))));
     }
 
-    function _swapToTarget(uint256 _profits) internal {
+    function _redirectProfits(uint256 _profits) internal {
         
         uint256 profitConverted = _profits.mul(profitConversionPercent).div(BPS_adj);
         if (base.balanceOf(address(this)) < profitConverted) {
@@ -214,14 +220,21 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
 
         uint256 swapAmt = Math.min(profitConverted, base.balanceOf(address(this)));
         uint256 amountOutMin = 0; // TO DO make sure don't get front run 
-        address[] memory path = _getTokenOutPath(address(base), address(targetToken), weth);
+        address[] memory path = _getTokenOutPath(address(base), address(swapToken), weth);
         IUniswapV2Router01(router).swapExactTokensForTokens(swapAmt, amountOutMin, path, address(this), now);
+    }
+
+    function _depositSwapToTargetVault() internal {
+        if (useTargetVault){
+            uint256 bal = swapToken.balanceOf(address(this));
+            IVault(address(targetToken)).deposit(bal);
+        }
     }
 
     function _updateRewardData(uint256 _preSwapBalance) internal {
         uint256 amountOut = (targetToken.balanceOf(address(this)).sub(_preSwapBalance));
         uint256 fee = _calcFee(amountOut);
-        targetToken.transfer(rewards, fee);
+        targetToken.transfer(feeToAddress, fee);
         epochRewards[epoch] = amountOut.sub(fee); 
         /// we use this instead of total Supply as users that just deposited in current epoch are not eligible for rewards 
         epochBalance[epoch] = eligibleEpochRewards;
