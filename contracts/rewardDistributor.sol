@@ -66,10 +66,11 @@ abstract contract rewardDistributor is ReentrancyGuard {
         uint256 rewardStart = user.epochStart;
         uint256 rewards = 0;
         uint256 userEpochRewards;
-        require(epoch > rewardStart);
-        for (uint i=rewardStart; i<epoch; i++) {
-            userEpochRewards = _calcUserEpochRewards(i, user.amount);
-            rewards = rewards.add(userEpochRewards);
+        if(epoch > rewardStart){
+            for (uint i=rewardStart; i<epoch; i++) {
+                userEpochRewards = _calcUserEpochRewards(i, user.amount);
+                rewards = rewards.add(userEpochRewards);
+            }
         }
         rewards = rewards.sub(totalClaimed[_user]);
         return(rewards);      

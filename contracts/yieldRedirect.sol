@@ -61,7 +61,11 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
         base = IERC20(_base);
         targetToken = IERC20(_targetToken);
         swapToken = IERC20(_swapToken);
-        useTargetVault = _targetToken == _swapToken;
+        useTargetVault = _targetToken != _swapToken;
+        if (useTargetVault){
+            // approve Vault 
+            swapToken.approve(_targetToken, uint(-1));
+        }
         vaultAddress = _vault;
         router = _router;
         base.approve(vaultAddress, uint(-1));
@@ -88,7 +92,13 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
 
         // to prevent users leaching i.e. deposit just before epoch rewards distributed user will start to be eligible for rewards following epoch
         // also as a result if user has balance & then deposits again will skip one epoch of rewards 
-        _updateUserInfo(msg.sender);
+        _updateUserInfo(msg.sender, epoch + 1);
+
+        // we reset the totalClaimed amount for the user in the case of the user redepositing 
+        // otherwise already claimed rewards will be deducted from future earnings (totalClaimed is only relevant if user claims between deposits / withdrawals)
+        totalClaimed[msg.sender] = 0;
+
+
     }
 
     function depositAll() public {
@@ -97,23 +107,36 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
     }
     
     // for simplicity in tracking Epoch positions when withdrawing user must withdraw ALl 
-    function withdraw() public nonReentrant
+    function withdraw(uint256 _amt) public nonReentrant
     {
         uint256 ibalance = balanceOf(msg.sender);
-        require(ibalance > 0, "withdraw must be greater than 0");
-        _burn(msg.sender, ibalance);
+        require(ibalance >= _amt, "must have sufficient balance");
+        require(_amt > 0);
+        _burn(msg.sender, _amt);
+
+        uint256 withdrawAmt = _amt;
+        // check if vault is in loss i.e. due to losses within vault
+        if (isVaultInLoss()){
+            withdrawAmt = _amt.mul(estimatedTotalAssets()).div(totalSupply());
+        }
 
         // Check balance
         uint256 b = base.balanceOf(address(this));
-        if (b < ibalance) {
-        uint256 withdrawAmt = ibalance.sub(b);
-        _withdrawAmountBase(withdrawAmt);
+        if (b < withdrawAmt) {
+            // remove required funds from underlying vault 
+            uint256 vaultWithdrawAmt = withdrawAmt.sub(b);
+            _withdrawAmountBase(vaultWithdrawAmt);
         }
 
-        base.safeTransfer(msg.sender, ibalance);
+        base.safeTransfer(msg.sender, withdrawAmt);
         _disburseRewards(msg.sender);
-        _updateUserInfo(msg.sender);
-        _updateEligibleEpochRewards(ibalance);
+        _updateUserInfo(msg.sender, epoch);
+
+        // we reset the totalClaimed amount for the user in the case of the user redepositing 
+        // otherwise already claimed rewards will be deducted from future earnings (totalClaimed is only relevant if user claims between deposits / withdrawals)
+        totalClaimed[msg.sender] = 0;
+        
+        _updateEligibleEpochRewards(_amt);
     }
 
     function _updateEligibleEpochRewards(uint256 amtWithdrawn) internal {
@@ -121,9 +144,13 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
 
     }
 
-    function setRewards(address _rewards) external onlyAuthorized {
-        require(_rewards != address(0));
-        rewards = _rewards;
+    function isVaultInLoss() public view returns(bool) {
+        return(estimatedTotalAssets() < totalSupply());
+    }
+
+    function setFeeToAddress(address _feeToAddress) external onlyAuthorized {
+        require(_feeToAddress != address(0));
+        feeToAddress = _feeToAddress;
     }
 
     function setParamaters(
@@ -151,8 +178,8 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
         tvlLimit = _tvlLimit;
     }
 
-    function _updateUserInfo(address _user) internal {
-        userInfo[_user] = UserInfo(balanceOf(_user), epoch + 1, block.timestamp);
+    function _updateUserInfo(address _user, uint256 _epoch) internal {
+        userInfo[_user] = UserInfo(balanceOf(_user), _epoch, block.timestamp);
     }
 
     function deployStrat() external onlyKeepers {
@@ -227,7 +254,7 @@ contract yieldRedirect is helpers, ERC20, rewardDistributor {
     function _depositSwapToTargetVault() internal {
         if (useTargetVault){
             uint256 bal = swapToken.balanceOf(address(this));
-            IVault(address(targetToken)).deposit(bal);
+            Ivault(address(targetToken)).deposit(bal);
         }
     }
 
