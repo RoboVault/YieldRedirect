@@ -16,7 +16,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../interfaces/uniswap.sol";
 import "../interfaces/vaults.sol";
 import './rewardDistributor.sol';
-import './vaultHelpers.sol';
+import './farmHelpers.sol';
 
 
 /*
@@ -28,13 +28,14 @@ Additionally some mechanics on vesting of the target tokens are built in encoura
 */
 
 
-contract yieldRedirect is vaultHelpers, rewardDistributor {
+contract yieldRedirectFarm is farmHelpers, rewardDistributor {
 
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
 
     IERC20 public base;
+    IERC20 public farmToken;
     IERC20 public swapToken;
 
     uint256 public profitFee = 300; // 3% default
@@ -51,23 +52,27 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
         address _base,
         address _targetToken,
         address _swapToken,
-        address _vault,
+        address _farmAddress,
+        address _farmToken,
         address _router,
-        address _weth
+        address _weth,
+        uint256 _pid,
+        uint256 _farmType
 
     ) public {
         base = IERC20(_base);
         targetToken = IERC20(_targetToken);
+        farmToken = IERC20(_farmToken);
         swapToken = IERC20(_swapToken);
         useTargetVault = _targetToken != _swapToken;
         if (useTargetVault){
             // approve Vault 
             swapToken.approve(_targetToken, uint(-1));
         }
-        vaultAddress = _vault;
+        farmAddress = _farmAddress;
         router = _router;
-        base.approve(vaultAddress, uint(-1));
-        base.approve(router, uint(-1));
+        base.approve(_farmAddress, uint(-1));
+        farmToken.approve(router, uint(-1));
         weth = _weth;
         feeToAddress = owner();
 
@@ -91,6 +96,8 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
         // to prevent users leaching i.e. deposit just before epoch rewards distributed user will start to be eligible for rewards following epoch
         // also as a result if user has balance & then deposits again will skip one epoch of rewards 
         _updateUserInfo(msg.sender, epoch + 1);
+        /// we automatically deploy token to farm 
+        _depositAsset(_amount);
 
         // we reset the totalClaimed amount for the user in the case of the user redepositing 
         // otherwise already claimed rewards will be deducted from future earnings (totalClaimed is only relevant if user claims between deposits / withdrawals)
@@ -196,7 +203,7 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
 
     function estimatedTotalAssets() public view returns(uint256) {
         uint256 bal = base.balanceOf(address(this));
-        bal = bal.add(vaultBalance());
+        bal = bal.add(farmBalance());
         return(bal);
     }
 
@@ -213,15 +220,15 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
     }
 
     function _convertProfitsInternal() internal {
-        uint256 profits = _calcEpochProfits();
+        _harvest();
         uint256 preSwapBalance = targetToken.balanceOf(address(this));
 
-        bool sufficientProfits = profits > minProfitThreshold;
+        bool sufficientProfits = farmToken.balanceOf(address(this)) > minProfitThreshold;
         bool depositorsEligible = eligibleEpochRewards > 0;
 
         // only convert profits if there is sufficient profit & users are eligible to start receiving rewards this epoch
         if (sufficientProfits && depositorsEligible){
-            _redirectProfits(profits);
+            _redirectProfits();
             _depositSwapToTargetVault();
         }
         _updateRewardData(preSwapBalance);
@@ -236,17 +243,12 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
         return((block.timestamp >= lastEpoch.add(timePerEpoch.add(timeForKeeperToConvert))));
     }
 
-    function _redirectProfits(uint256 _profits) internal {
+    function _redirectProfits() internal {
         
-        uint256 profitConverted = _profits.mul(profitConversionPercent).div(BPS_adj);
-        if (base.balanceOf(address(this)) < profitConverted) {
-            uint256 withdrawAmt = profitConverted.sub(base.balanceOf(address(this)));
-            _withdrawAmountBase(withdrawAmt);
-        }
-
-        uint256 swapAmt = Math.min(profitConverted, base.balanceOf(address(this)));
+        uint256 profitConverted = farmToken.balanceOf(address(this)).mul(profitConversionPercent).div(BPS_adj);
+        uint256 swapAmt = Math.min(profitConverted, farmToken.balanceOf(address(this)));
         uint256 amountOutMin = 0; // TO DO make sure don't get front run 
-        address[] memory path = _getTokenOutPath(address(base), address(swapToken), weth);
+        address[] memory path = _getTokenOutPath(address(farmToken), address(swapToken), weth);
         IUniswapV2Router01(router).swapExactTokensForTokens(swapAmt, amountOutMin, path, address(this), now);
     }
 

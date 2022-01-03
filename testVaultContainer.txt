@@ -1,7 +1,6 @@
 #following can be run in terminal 
 brownie console 
 
-
 wftm = interface.ERC20('0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83')
 usdc = interface.ERC20('0x04068DA6C83AFCFA0e13ba15A6696662335D5B75')
 
@@ -16,7 +15,7 @@ depositor2 = accounts[2] #this would be user that wants to redirect yield from Y
 
 
 router = '0xF491e7B69E4244ad4002BC14e878a34207E38c29'
-container = yieldRedirect.deploy("test", "test", wftm, yvUSDC, usdc, yvFTM, router , wftm ,{"from": accounts[0]})
+container = yieldRedirect.deploy(wftm, yvUSDC, usdc, yvFTM, router , wftm ,{"from": accounts[0]})
 
 
 wftmTransfer = 10000*(10**18)
@@ -42,6 +41,7 @@ wftm.transfer(container.address, wftmTransfer*.01, {"from": wftmWhale})
 
 wftm.approve(container.address, wftmTransfer , {"from": depositor1})
 container.deposit(wftmTransfer, {"from": depositor1} )
+container.getUserRewards(depositor1)
 
 container.convertProfits({"from": depositor})
 

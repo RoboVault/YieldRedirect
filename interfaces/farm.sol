@@ -12,3 +12,14 @@ interface IFarm {
         returns (uint256);
 
 }
+
+interface IFarmPain {
+    function deposit(uint256 _pid, uint256 _amount, address _to) external;
+    function withdraw(uint256 _pid, uint256 _amount, address _to) external;
+    function userInfo(uint256 _pid, address user)
+        external
+        view
+        returns (uint256);  
+    function withdrawAndHarvest(uint256 _pid, uint256 _amount, address _to) external;
+
+}

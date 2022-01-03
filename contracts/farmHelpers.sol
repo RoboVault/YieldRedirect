@@ -10,13 +10,24 @@ import {
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
-import "../interfaces/vaults.sol";
+import "../interfaces/farm.sol";
+import "../interfaces/gauge.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 
 // Helpers for vault management 
 
-abstract contract vaultHelpers is Ownable {
+/*
+farmType
+0 = standard masterchef i.e. SpookyFarm
+1 = gauge i.e. Spirit Farm
+2 = LQDR farm
+3 = Beets farm  
+*/
+
+
+abstract contract farmHelpers is Ownable {
 
     using SafeERC20 for IERC20;
     using Address for address;
@@ -28,8 +39,10 @@ abstract contract vaultHelpers is Ownable {
 
     address public keeper;
     address public strategist; 
-    address public vaultAddress;
-    uint256 safetyFactor = 10100; // when withdrawing from vault to account for potential losses 
+    address public farmAddress;
+    uint256 pid;
+    uint256 farmType;
+
     uint256 constant BPS_adj = 10000;
 
     function totalSupply() public view returns (uint256) {
@@ -93,25 +106,32 @@ abstract contract vaultHelpers is Ownable {
         keeper = _keeper;
     }
 
+    function farmBalance() public view returns(uint256){
+        return IFarm(farmAddress).userInfo(pid, address(this));
+    }
+
     // deposits underlying asset to VAULT 
     function _depositAsset(uint256 amt) internal {
-        Ivault(vaultAddress).deposit(amt);
+        if (farmType == 0){IFarm(farmAddress).deposit(pid, amt);}
+        if (farmType == 1){IGauge(farmAddress).deposit(amt);}
+        if (farmType == 2){IFarmPain(farmAddress).deposit(pid, amt, address(this));}
+        if (farmType == 3){IFarmPain(farmAddress).deposit(pid, amt, address(this));}
     }
 
     function _withdrawAmountBase(uint256 amt) internal {
-        uint256 vaultBal = vaultBalance();
-        IERC20 vaultToken = IERC20(vaultAddress);
-        uint256 vaultTokens = vaultToken.balanceOf(address(this));
-        uint256 withdrawAmt;
-        withdrawAmt = amt.mul(vaultTokens).div(vaultBal);
-        withdrawAmt = withdrawAmt.mul(safetyFactor).div(BPS_adj);
-        withdrawAmt = Math.min(withdrawAmt, vaultTokens);
-        _withdrawAsset(withdrawAmt);
+        if (farmType == 0){IFarm(farmAddress).withdraw(pid, amt);}
+        if (farmType == 1){IGauge(farmAddress).withdrawAll();}
+        if (farmType == 2){IFarmPain(farmAddress).withdraw(pid, amt, address(this));}
+        if (farmType == 3){IFarmPain(farmAddress).withdrawAndHarvest(pid, amt,address(this));}   
     }
 
-    function _withdrawAsset(uint256 amt) internal {
-        Ivault(vaultAddress).withdraw(amt);
+    function _harvest() internal {
+        if (farmType == 0){IFarm(farmAddress).withdraw(pid, 0);}
+        if (farmType == 1){IGauge(farmAddress).getReward();}
+        if (farmType == 2){IFarmPain(farmAddress).withdraw(pid, 0, address(this));}
+        if (farmType == 3){IFarmPain(farmAddress).withdrawAndHarvest(pid, 0,address(this));}   
     }
+
 
     function _approveNewEarner(address _underlying, address _deployAddress) internal {
         IERC20 underlying = IERC20(_underlying);
@@ -121,21 +141,6 @@ abstract contract vaultHelpers is Ownable {
     function _removeApprovals(address _underlying, address _deployAddress) internal {
         IERC20 underlying = IERC20(_underlying);
         underlying.approve(_deployAddress, uint(0));
-    }
-
-    function _unlockUnderlying() internal {
-        IERC20 vaultToken = IERC20(vaultAddress);
-        uint256 vaultTokens = vaultToken.balanceOf(address(this));
- 
-        Ivault(vaultAddress).withdraw(vaultTokens);
-    }
-
-    function vaultBalance() public view returns(uint256){
-        IERC20 vaultToken = IERC20(vaultAddress);
-        uint256 vaultDecimals = Ivault(vaultAddress).decimals(); 
-        uint256 vaultBPS = 10**vaultDecimals;
-        uint256 bal = vaultToken.balanceOf(address(this)).mul(Ivault(vaultAddress).pricePerShare()).div(vaultBPS);
-        return(bal);
     }
 
     function _getTokenOutPath(address _token_in, address _token_out, address _weth)
