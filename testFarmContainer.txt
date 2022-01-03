@@ -19,9 +19,9 @@ container = yieldRedirectFarm.deploy(booLP, yvUSDC, usdc, spookyMasterChef, boo 
 
 wftmWhale = '0x51D493C9788F4b6F87EAe50F555DD671c4Cf653E'
 
-depositor = accounts[0] #this would be user that wants to redirect yield from YVDAI to buying OHM
-depositor1 = accounts[1] #this would be user that wants to redirect yield from YVDAI to buying OHM
-depositor2 = accounts[2] #this would be user that wants to redirect yield from YVDAI to buying OHM
+depositor = accounts[1] #this would be user that wants to redirect yield from YVDAI to buying OHM
+depositor1 = accounts[2] #this would be user that wants to redirect yield from YVDAI to buying OHM
+depositor2 = accounts[3] #this would be user that wants to redirect yield from YVDAI to buying OHM
 
 
 lpTransfer = 5000*(10**18)
@@ -50,8 +50,22 @@ container.getUserRewards(depositor1)
 
 container.convertProfits({"from": depositor})
 
+chain.sleep(10000)
+
+container.convertProfits({"from": depositor})
+
+chain.sleep(10000)
+
+container.convertProfits({"from": depositor})
+
+yvUSDC.balanceOf(depositor)
+
 container.getUserRewards(depositor)
 container.getUserRewards(depositor1)
 
 container.claimRewards({"from": depositor})
 container.withdraw(lpTransfer, {"from": depositor})
+container.withdraw(lpTransfer, {"from": depositor1})
+
+yvUSDC.balanceOf(depositor)
+yvUSDC.balanceOf(depositor1)
