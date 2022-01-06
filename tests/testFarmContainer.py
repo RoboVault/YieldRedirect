@@ -20,7 +20,8 @@ def testFarmContainer(accounts, yieldRedirectFarm, chain):
     usdc = interface.ERC20('0x04068DA6C83AFCFA0e13ba15A6696662335D5B75')
     yvUSDC = interface.ERC20('0xEF0210eB96c7EB36AF8ed1c20306462764935607')
 
-    container = yieldRedirectFarm.deploy(booLP, yvUSDC, usdc, spookyMasterChef, boo , spookyRouter , wftm , booPid , 0 , {"from": accounts[0]})
+    owner = accounts[0]
+    container = yieldRedirectFarm.deploy(booLP, yvUSDC, usdc, spookyMasterChef, boo , spookyRouter , wftm , booPid , 0 , {"from": owner})
 
     wftmWhale = '0x51D493C9788F4b6F87EAe50F555DD671c4Cf653E'
 
@@ -28,54 +29,59 @@ def testFarmContainer(accounts, yieldRedirectFarm, chain):
     depositor1 = accounts[2] 
     user = accounts[3] 
 
-    lpTransfer = 5000*(10**18)
+    depositAmt = 5000*(10**18)
     booTransfer = 500*(10**18)
-    booLP.transfer(depositor, lpTransfer, {'from' : booLPWhale})
-    booLP.transfer(depositor1, lpTransfer, {'from' : booLPWhale})
+    booLP.transfer(depositor, depositAmt, {'from' : booLPWhale})
+    booLP.transfer(depositor1, depositAmt, {'from' : booLPWhale})
 
-    booLP.approve(container.address, lpTransfer , {"from": depositor})
+    booLP.approve(container.address, depositAmt , {"from": depositor})
 
-    container.deposit(lpTransfer, {"from": depositor} )
-    assert container.estimatedTotalAssets() == lpTransfer
+    container.deposit(depositAmt, {"from": depositor} )
+    assert container.estimatedTotalAssets() == depositAmt
+    assert container.balanceOf(depositor) == depositAmt
 
     # should fail as user has insufficient balance 
-    booLP.approve(container.address, lpTransfer , {"from": user})
+    booLP.approve(container.address, depositAmt , {"from": user})
     with reverts():
-        container.deposit(lpTransfer, {"from": user} )
+        container.deposit(depositAmt, {"from": user} )
+        
+    # user should not have permission to call this 
+    with reverts():
+        container.convertProfits({"from": user})
         
 
     chain.sleep(10)
 
-    container.convertProfits({"from": depositor})
+    container.convertProfits({"from": owner})
 
     chain.sleep(10000)
 
     #boo.transfer(container.address, booTransfer, {"from": booWhale})
 
-    booLP.approve(container.address, lpTransfer , {"from": depositor1})
-    container.deposit(lpTransfer, {"from": depositor1} )
+    booLP.approve(container.address, depositAmt , {"from": depositor1})
+    container.deposit(depositAmt, {"from": depositor1} )
     container.getUserRewards(depositor1)
 
-    container.convertProfits({"from": depositor})
+    container.convertProfits({"from": owner})
 
     chain.sleep(10000)
 
-    container.convertProfits({"from": depositor})
+    container.convertProfits({"from": owner})
 
     chain.sleep(10000)
 
-    container.convertProfits({"from": depositor})
+    container.convertProfits({"from": owner})
 
     preHarvestbal = yvUSDC.balanceOf(depositor)
     pendingRewards = container.getUserRewards(depositor)
     preWithdrawAssets = container.estimatedTotalAssets()
     container.claimRewards({"from": depositor})
     assert yvUSDC.balanceOf(depositor) == (preHarvestbal + pendingRewards)
-    container.withdraw(lpTransfer, {"from": depositor})
-    assert booLP.balanceOf(depositor) == lpTransfer
+    container.withdraw(depositAmt, {"from": depositor})
+    assert booLP.balanceOf(depositor) == depositAmt
     with reverts() : 
-        container.withdraw(lpTransfer, {"from": depositor})
+        container.withdraw(depositAmt, {"from": depositor})
 
-    assert container.estimatedTotalAssets() == (preWithdrawAssets - lpTransfer)
+    assert container.estimatedTotalAssets() == (preWithdrawAssets - depositAmt)
     assert container.getUserRewards(depositor) == 0 
  

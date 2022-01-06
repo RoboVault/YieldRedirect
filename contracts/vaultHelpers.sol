@@ -76,8 +76,7 @@ abstract contract vaultHelpers is Ownable {
         require(
             msg.sender == keeper ||
                 msg.sender == strategist ||
-                msg.sender == owner() ||
-                !Address.isContract(msg.sender),
+                msg.sender == owner(),
             "!authorized"
         );
         _;

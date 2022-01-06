@@ -14,13 +14,14 @@ def testVaultContainer(accounts, yieldRedirect, chain):
 
     wftmWhale = '0x51D493C9788F4b6F87EAe50F555DD671c4Cf653E'
 
+    owner = accounts[3]
     depositor = accounts[0] #this would be user that wants to redirect yield from YVDAI to buying OHM
     depositor1 = accounts[1] #this would be user that wants to redirect yield from YVDAI to buying OHM
     user = accounts[2] #this would be user that wants to redirect yield from YVDAI to buying OHM
 
 
     router = '0xF491e7B69E4244ad4002BC14e878a34207E38c29'
-    container = yieldRedirect.deploy(wftm, yvUSDC, usdc, yvFTM, router , wftm ,{"from": accounts[0]})
+    container = yieldRedirect.deploy(wftm, yvUSDC, usdc, yvFTM, router , wftm ,{"from": owner})
 
 
     wftmTransfer = 10000*(10**18)
@@ -30,12 +31,16 @@ def testVaultContainer(accounts, yieldRedirect, chain):
     wftm.approve(container.address, wftmTransfer , {"from": depositor})
 
     container.deposit(wftmTransfer, {"from": depositor} )
-    container.deployStrat({"from": depositor})
+    # check strat can't be deployed 
+    with reverts():
+        container.deployStrat({"from": user} )
+
+    container.deployStrat({"from": owner})
     assert pytest.approx(container.estimatedTotalAssets(), rel = 1e-3) == wftmTransfer
 
     chain.sleep(10)
 
-    container.convertProfits({"from": depositor})
+    container.convertProfits({"from": owner})
 
     chain.sleep(10)
 
@@ -44,7 +49,7 @@ def testVaultContainer(accounts, yieldRedirect, chain):
     wftm.approve(container.address, wftmTransfer , {"from": depositor1})
     container.deposit(wftmTransfer, {"from": depositor1} )
     container.getUserRewards(depositor1)
-    container.convertProfits({"from": depositor})
+    container.convertProfits({"from": owner})
 
     preClaimBalance = yvUSDC.balanceOf(depositor)
     pendingRewards = container.getUserRewards(depositor)

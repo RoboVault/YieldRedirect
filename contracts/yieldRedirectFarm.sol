@@ -213,11 +213,13 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
 
     }
 
+    /*
     // allow public to convert profits if keeper hasn't executed within 1 hour (as per timeForKeeperToConvert variable)
     function convertProfitsPublic() public nonReentrant {
         require(isEpochOverdue()); 
         _convertProfitsInternal();
     }
+    */
 
     function _convertProfitsInternal() internal {
         _harvest();

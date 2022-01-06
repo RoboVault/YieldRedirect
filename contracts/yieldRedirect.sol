@@ -206,12 +206,14 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
 
     }
 
+    /*
     // allow public to convert profits if keeper hasn't executed within 1 hour (as per timeForKeeperToConvert variable)
     function convertProfitsPublic() public nonReentrant {
         require(isEpochOverdue()); 
         _convertProfitsInternal();
     }
-
+    */
+    
     function _convertProfitsInternal() internal {
         uint256 profits = _calcEpochProfits();
         uint256 preSwapBalance = targetToken.balanceOf(address(this));
