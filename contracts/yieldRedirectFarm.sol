@@ -75,6 +75,7 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
         farmToken.approve(router, uint(-1));
         weth = _weth;
         feeToAddress = owner();
+        farmType = _farmType;
 
     }
 

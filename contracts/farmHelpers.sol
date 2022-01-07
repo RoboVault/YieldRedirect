@@ -127,7 +127,7 @@ abstract contract farmHelpers is Ownable {
     function _harvest() internal {
         if (farmType == 0){IFarm(farmAddress).withdraw(pid, 0);}
         if (farmType == 1){IGauge(farmAddress).getReward();}
-        if (farmType == 2){IFarmPain(farmAddress).withdraw(pid, 0, address(this));}
+        if (farmType == 2){IFarmPain(farmAddress).harvest(pid, address(this));}
         if (farmType == 3){IFarmPain(farmAddress).withdrawAndHarvest(pid, 0,address(this));}   
     }
 

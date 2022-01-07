@@ -5,6 +5,7 @@ from brownie import interface
 from brownie import reverts
 
 
+
 def testVaultContainer(accounts, yieldRedirect, chain):
     wftm = interface.ERC20('0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83')
     usdc = interface.ERC20('0x04068DA6C83AFCFA0e13ba15A6696662335D5B75')
@@ -24,19 +25,19 @@ def testVaultContainer(accounts, yieldRedirect, chain):
     container = yieldRedirect.deploy(wftm, yvUSDC, usdc, yvFTM, router , wftm ,{"from": owner})
 
 
-    wftmTransfer = 10000*(10**18)
-    wftm.transfer(depositor, wftmTransfer, {'from' : wftmWhale})
-    wftm.transfer(depositor1, wftmTransfer, {'from' : wftmWhale})
+    depositAmt = 10000*(10**18)
+    wftm.transfer(depositor, depositAmt, {'from' : wftmWhale})
+    wftm.transfer(depositor1, depositAmt, {'from' : wftmWhale})
 
-    wftm.approve(container.address, wftmTransfer , {"from": depositor})
+    wftm.approve(container.address, depositAmt , {"from": depositor})
 
-    container.deposit(wftmTransfer, {"from": depositor} )
+    container.deposit(depositAmt, {"from": depositor} )
     # check strat can't be deployed 
     with reverts():
         container.deployStrat({"from": user} )
 
     container.deployStrat({"from": owner})
-    assert pytest.approx(container.estimatedTotalAssets(), rel = 1e-3) == wftmTransfer
+    assert pytest.approx(container.estimatedTotalAssets(), rel = 1e-3) == depositAmt
 
     chain.sleep(10)
 
@@ -44,19 +45,21 @@ def testVaultContainer(accounts, yieldRedirect, chain):
 
     chain.sleep(10)
 
-    wftm.transfer(container.address, wftmTransfer*.01, {"from": wftmWhale})
+    wftm.transfer(container.address, depositAmt*.01, {"from": wftmWhale})
 
-    wftm.approve(container.address, wftmTransfer , {"from": depositor1})
-    container.deposit(wftmTransfer, {"from": depositor1} )
+    wftm.approve(container.address, depositAmt , {"from": depositor1})
+    container.deposit(depositAmt, {"from": depositor1} )
+    
     container.getUserRewards(depositor1)
+
     container.convertProfits({"from": owner})
 
     preClaimBalance = yvUSDC.balanceOf(depositor)
     pendingRewards = container.getUserRewards(depositor)
     container.claimRewards({"from": depositor})
     assert yvUSDC.balanceOf(depositor) == pendingRewards + preClaimBalance
-    container.withdraw(wftmTransfer, {"from": depositor})
-    assert pytest.approx(wftm.balanceOf(depositor)) == wftmTransfer
+    container.withdraw(depositAmt, {"from": depositor})
+    assert pytest.approx(wftm.balanceOf(depositor)) == depositAmt
     with reverts():
-        container.withdraw(wftmTransfer, {"from": depositor})
+        container.withdraw(depositAmt, {"from": depositor})
         

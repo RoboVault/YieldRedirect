@@ -5,7 +5,7 @@ from brownie import interface
 from brownie import reverts
 
 
-def testFarmContainer(accounts, yieldRedirectFarm, chain):
+def testFarmContainerBoo(accounts, yieldRedirectFarm, chain):
     wftm = interface.ERC20('0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83')
     booLP = interface.ERC20('0xEc7178F4C41f346b2721907F5cF7628E388A7a58')
     boo = interface.ERC20('0x841FAD6EAe12c286d1Fd18d1d525DFfA75C7EFFE')
