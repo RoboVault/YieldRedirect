@@ -20,8 +20,14 @@ def testFarmContainerLQDR(accounts, yieldRedirectFarm, chain):
     usdc = interface.ERC20('0x04068DA6C83AFCFA0e13ba15A6696662335D5B75')
     yvUSDC = interface.ERC20('0xEF0210eB96c7EB36AF8ed1c20306462764935607')
 
+    gohm = interface.ERC20('0x91fa20244Fb509e8289CA630E5db3E9166233FDc')
+
+    swapAsset = gohm
+    rewaredAsset = gohm
+
+
     owner = accounts[0]
-    container = yieldRedirectFarm.deploy(lp, yvUSDC, usdc, masterChef, farmToken , router , wftm , pid , farmType , {"from": owner})
+    container = yieldRedirectFarm.deploy(lp, rewaredAsset, swapAsset, masterChef, farmToken , router , wftm , pid , farmType , {"from": owner})
 
 
     depositor = accounts[1] 
@@ -76,24 +82,24 @@ def testFarmContainerLQDR(accounts, yieldRedirectFarm, chain):
 
     container.convertProfits({"from": owner})
 
-    accumulatedReturns = yvUSDC.balanceOf(container)
+    accumulatedReturns = rewaredAsset.balanceOf(container)
     # due to rounding will likely be some dust in user returns 
     assert pytest.approx(accumulatedReturns, rel=1e-3) == (container.getUserRewards(depositor) + container.getUserRewards(depositor1))
 
-    preHarvestbal = yvUSDC.balanceOf(depositor)
+    preHarvestbal = rewaredAsset.balanceOf(depositor)
     pendingRewards = container.getUserRewards(depositor)
     print("Pending Rewards")
     print(pendingRewards)
     preWithdrawAssets = container.estimatedTotalAssets()
     container.harvest({"from": depositor})
-    assert yvUSDC.balanceOf(depositor) == (preHarvestbal + pendingRewards)
+    assert rewaredAsset.balanceOf(depositor) == (preHarvestbal + pendingRewards)
     with reverts() : 
         container.harvest({"from": depositor})
 
     container.withdraw(depositAmt, {"from": depositor})
 
     # make sure after harvesting then withdrawing no extra rewards are disbursed
-    assert yvUSDC.balanceOf(depositor) == (preHarvestbal + pendingRewards)
+    assert rewaredAsset.balanceOf(depositor) == (preHarvestbal + pendingRewards)
 
     assert lp.balanceOf(depositor) == depositAmt
     with reverts() : 

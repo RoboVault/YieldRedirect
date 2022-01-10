@@ -92,11 +92,6 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
         // also as a result if user has balance & then deposits again will skip one epoch of rewards 
         _updateUserInfo(msg.sender, epoch + 1);
 
-        // we reset the totalClaimed amount for the user in the case of the user redepositing 
-        // otherwise already claimed rewards will be deducted from future earnings (totalClaimed is only relevant if user claims between deposits / withdrawals)
-        totalClaimed[msg.sender] = 0;
-
-
     }
 
     function depositAll() public {
@@ -129,14 +124,16 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
         base.safeTransfer(msg.sender, withdrawAmt);
         _disburseRewards(msg.sender);
         _updateUserInfo(msg.sender, epoch);
-
-        // we reset the totalClaimed amount for the user in the case of the user redepositing 
-        // otherwise already claimed rewards will be deducted from future earnings (totalClaimed is only relevant if user claims between deposits / withdrawals)
-        totalClaimed[msg.sender] = 0;
-        
         _updateEligibleEpochRewards(_amt);
     }
 
+    function harvest() public nonReentrant {
+        uint256 pendingRewards = getUserRewards(msg.sender);
+        require(pendingRewards > 0, "user must have balance to claim"); 
+        _disburseRewards(msg.sender);
+        /// updates reward information so user rewards start from current EPOCH 
+        _updateUserInfo(msg.sender, epoch);
+    }
 
     function _updateEligibleEpochRewards(uint256 amtWithdrawn) internal {
       eligibleEpochRewards = eligibleEpochRewards.sub(amtWithdrawn);

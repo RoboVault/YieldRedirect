@@ -47,12 +47,7 @@ abstract contract rewardDistributor is ReentrancyGuard {
     mapping (address => uint256) public totalClaimed;
 
 
-    function claimRewards() public nonReentrant {
-        uint256 pendingRewards = getUserRewards(msg.sender);
-        require(pendingRewards > 0, "user must have balance to claim"); 
-        _disburseRewards(msg.sender);
-    }
-    
+   
 
     function _disburseRewards(address _user) internal {
         uint256 rewards = getUserRewards(_user);
@@ -72,7 +67,6 @@ abstract contract rewardDistributor is ReentrancyGuard {
                 rewards = rewards.add(userEpochRewards);
             }
         }
-        rewards = rewards.sub(totalClaimed[_user]);
         return(rewards);      
     }
 

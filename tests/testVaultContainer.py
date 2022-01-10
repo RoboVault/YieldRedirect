@@ -21,6 +21,7 @@ def testVaultContainer(accounts, yieldRedirect, chain):
     user = accounts[2] #this would be user that wants to redirect yield from YVDAI to buying OHM
 
 
+
     router = '0xF491e7B69E4244ad4002BC14e878a34207E38c29'
     container = yieldRedirect.deploy(wftm, yvUSDC, usdc, yvFTM, router , wftm ,{"from": owner})
 
@@ -56,7 +57,7 @@ def testVaultContainer(accounts, yieldRedirect, chain):
 
     preClaimBalance = yvUSDC.balanceOf(depositor)
     pendingRewards = container.getUserRewards(depositor)
-    container.claimRewards({"from": depositor})
+    container.harvest({"from": depositor})
     assert yvUSDC.balanceOf(depositor) == pendingRewards + preClaimBalance
     container.withdraw(depositAmt, {"from": depositor})
     assert pytest.approx(wftm.balanceOf(depositor)) == depositAmt

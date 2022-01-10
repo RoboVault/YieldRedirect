@@ -39,8 +39,7 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
     IERC20 public swapToken;
 
     uint256 public profitFee = 300; // 3% default
-    uint256 constant profitFeeMax = 1000; // 10%
-    uint256 public reserveAllocation = 500; // 5% default
+    uint256 constant profitFeeMax = 500; // 50%
     uint256 public tvlLimit;
     // amount of profit converted each Epoch (don't convert everything to smooth returns)
     uint256 public profitConversionPercent = 5000; // 50% default 
@@ -95,15 +94,9 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
         _mint(msg.sender, shares);
 
         // to prevent users leaching i.e. deposit just before epoch rewards distributed user will start to be eligible for rewards following epoch
-        // also as a result if user has balance & then deposits again will skip one epoch of rewards 
         _updateUserInfo(msg.sender, epoch + 1);
         /// we automatically deploy token to farm 
         _depositAsset(_amount);
-
-        // we reset the totalClaimed amount for the user in the case of the user redepositing 
-        // otherwise already claimed rewards will be deducted from future earnings (totalClaimed is only relevant if user claims between deposits / withdrawals)
-        totalClaimed[msg.sender] = 0;
-
 
     }
 
@@ -137,14 +130,17 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
         base.safeTransfer(msg.sender, withdrawAmt);
         _disburseRewards(msg.sender);
         _updateUserInfo(msg.sender, epoch);
-
-        // we reset the totalClaimed amount for the user in the case of the user redepositing 
-        // otherwise already claimed rewards will be deducted from future earnings (totalClaimed is only relevant if user claims between deposits / withdrawals)
-        totalClaimed[msg.sender] = 0;
         
         _updateEligibleEpochRewards(_amt);
     }
 
+    function harvest() public nonReentrant {
+        uint256 pendingRewards = getUserRewards(msg.sender);
+        require(pendingRewards > 0, "user must have balance to claim"); 
+        _disburseRewards(msg.sender);
+        /// updates reward information so user rewards start from current EPOCH 
+        _updateUserInfo(msg.sender, epoch);
+    }
 
     function _updateEligibleEpochRewards(uint256 amtWithdrawn) internal {
       eligibleEpochRewards = eligibleEpochRewards.sub(amtWithdrawn);
@@ -161,16 +157,13 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
     }
 
     function setParamaters(
-        uint256 _reserveAllocation,
         uint256 _profitConversionPercent,
         uint256 _profitFee,
         uint256 _minProfitThreshold
     ) external onlyAuthorized {
-        require(_reserveAllocation <= BPS_adj);
         require(_profitConversionPercent <= BPS_adj);
         require(_profitFee <= profitFeeMax);
 
-        reserveAllocation = _reserveAllocation;
         profitFee = _profitFee;
         profitConversionPercent = _profitConversionPercent;
         minProfitThreshold = _minProfitThreshold;
@@ -191,11 +184,7 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
 
     function deployStrat() external onlyKeepers {
         uint256 bal = base.balanceOf(address(this));
-        uint256 totalBal = estimatedTotalAssets();
-        uint256 reserves = totalBal.mul(reserveAllocation).div(BPS_adj);
-        if (bal > reserves) {
-            _deployCapital(bal.sub(reserves));
-        }
+        _deployCapital(bal.sub(bal));
     }
 
     function _deployCapital(uint256 _amount) internal {
@@ -213,14 +202,6 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
         _convertProfitsInternal();
 
     }
-
-    /*
-    // allow public to convert profits if keeper hasn't executed within 1 hour (as per timeForKeeperToConvert variable)
-    function convertProfitsPublic() public nonReentrant {
-        require(isEpochOverdue()); 
-        _convertProfitsInternal();
-    }
-    */
 
     function _convertProfitsInternal() internal {
         _harvest();
