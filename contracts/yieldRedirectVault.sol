@@ -202,14 +202,6 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
         _convertProfitsInternal();
 
     }
-
-    /*
-    // allow public to convert profits if keeper hasn't executed within 1 hour (as per timeForKeeperToConvert variable)
-    function convertProfitsPublic() public nonReentrant {
-        require(isEpochOverdue()); 
-        _convertProfitsInternal();
-    }
-    */
     
     function _convertProfitsInternal() internal {
         uint256 profits = _calcEpochProfits();
@@ -221,7 +213,9 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
         // only convert profits if there is sufficient profit & users are eligible to start receiving rewards this epoch
         if (sufficientProfits && depositorsEligible){
             _redirectProfits(profits);
-            _depositSwapToTargetVault();
+            if (useTargetVault){
+                _depositSwapToTargetVault();
+            }
         }
         _updateRewardData(preSwapBalance);
         _updateEpoch();

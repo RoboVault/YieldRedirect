@@ -108,3 +108,8 @@ def testFarmContainerLQDR(accounts, yieldRedirectFarm, chain):
     assert container.estimatedTotalAssets() == (preWithdrawAssets - depositAmt)
     assert container.getUserRewards(depositor) == 0 
  
+    chain.sleep(10000)
+    container.convertProfits({"from": owner})
+
+    #uses should no longer be receiving rewards after withdrawing 
+    assert container.getUserRewards(depositor) == 0 

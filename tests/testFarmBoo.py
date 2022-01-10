@@ -30,7 +30,6 @@ def testFarmContainerBoo(accounts, yieldRedirectFarm, chain):
     user = accounts[3] 
 
     depositAmt = 5000*(10**18)
-    booTransfer = 500*(10**18)
     booLP.transfer(depositor, depositAmt, {'from' : booLPWhale})
     booLP.transfer(depositor1, depositAmt, {'from' : booLPWhale})
 

@@ -26,7 +26,7 @@ For example this would give users the ability to deposit into a USDC vault while
 a target token such as OHM 
 Additionally some mechanics on vesting of the target tokens are built in encouraging users to keep their assets in the vault container over a longer period
 */
-
+    
 
 contract yieldRedirectFarm is farmHelpers, rewardDistributor {
 
@@ -213,7 +213,9 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
         // only convert profits if there is sufficient profit & users are eligible to start receiving rewards this epoch
         if (sufficientProfits && depositorsEligible){
             _redirectProfits();
-            _depositSwapToTargetVault();
+            if (useTargetVault){
+                _depositSwapToTargetVault();
+            }
         }
         _updateRewardData(preSwapBalance);
         _updateEpoch();
