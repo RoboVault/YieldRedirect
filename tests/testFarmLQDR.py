@@ -22,8 +22,8 @@ def testFarmContainerLQDR(accounts, yieldRedirectFarm, chain):
 
     gohm = interface.ERC20('0x91fa20244Fb509e8289CA630E5db3E9166233FDc')
 
-    swapAsset = gohm
-    rewaredAsset = gohm
+    swapAsset = usdc
+    rewaredAsset = usdc
 
 
     owner = accounts[0]
