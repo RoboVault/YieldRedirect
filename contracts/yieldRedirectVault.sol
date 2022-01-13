@@ -79,11 +79,15 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
         require(_amount > 0, "deposit must be greater than 0");
         bool withinTvlLimit = _amount.add(estimatedTotalAssets()) >= tvlLimit;
         require(withinTvlLimit, "deposit greater than TVL Limit");
+        uint256 currrentBalance = balanceOf(msg.sender);
 
-        if (balanceOf(msg.sender) > 0) {
+        if (currrentBalance > 0) {
             // claims all rewards 
             _disburseRewards(msg.sender);
+            // to make accounting work in tracking rewards for target asset this user isn't eligible for next epoch 
+            _updateEligibleEpochRewards(currrentBalance);
         }
+        
         base.transferFrom(msg.sender, address(this), _amount);    
         uint256 shares = _amount;
         _mint(msg.sender, shares);
@@ -94,7 +98,7 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
 
     }
 
-    function depositAll() public {
+    function depositAll() public nonReentrant {
         uint256 balance = base.balanceOf(msg.sender); 
         deposit(balance); 
     }
@@ -223,10 +227,6 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
 
     function isEpochFinished() public view returns (bool){
         return((block.timestamp >= lastEpoch.add(timePerEpoch)));
-    }
-
-    function isEpochOverdue() public view returns (bool){
-        return((block.timestamp >= lastEpoch.add(timePerEpoch.add(timeForKeeperToConvert))));
     }
 
     function _redirectProfits(uint256 _profits) internal {

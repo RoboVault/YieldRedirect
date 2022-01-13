@@ -27,6 +27,9 @@ abstract contract helpers is Ownable {
     address public strategist; 
     uint256 constant BPS_adj = 10000;
 
+    // have stripped out basic ERC20 functionality for tracking balances upon deposits 
+    // have removed transfer as this will complicate tracking of rewards i.e. edge cases whne transferring to user that has just deposited 
+
     function totalSupply() public view returns (uint256) {
         return _totalSupply;
     }
@@ -86,6 +89,8 @@ abstract contract helpers is Ownable {
         require(_keeper != address(0));
         keeper = _keeper;
     }
+
+    // this is used when completing the swap redirecting yield from base asset or farming reward to target asset 
 
     function _getTokenOutPath(address _token_in, address _token_out, address _weth)
         internal

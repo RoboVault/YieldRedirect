@@ -84,10 +84,13 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
         require(_amount > 0, "deposit must be greater than 0");
         bool withinTvlLimit = _amount.add(estimatedTotalAssets()) >= tvlLimit;
         require(withinTvlLimit, "deposit greater than TVL Limit");
+        uint256 currrentBalance = balanceOf(msg.sender);
 
-        if (balanceOf(msg.sender) > 0) {
+        if (currrentBalance > 0) {
             // claims all rewards 
             _disburseRewards(msg.sender);
+            // to make accounting work in tracking rewards for target asset this user isn't eligible for next epoch 
+            _updateEligibleEpochRewards(currrentBalance);
         }
         base.transferFrom(msg.sender, address(this), _amount);    
         uint256 shares = _amount;
@@ -142,8 +145,8 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
         _updateUserInfo(msg.sender, epoch);
     }
 
-    function _updateEligibleEpochRewards(uint256 amtWithdrawn) internal {
-      eligibleEpochRewards = eligibleEpochRewards.sub(amtWithdrawn);
+    function _updateEligibleEpochRewards(uint256 amt) internal {
+      eligibleEpochRewards = eligibleEpochRewards.sub(amt);
 
     }
 
@@ -223,10 +226,6 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
 
     function isEpochFinished() public view returns (bool){
         return((block.timestamp >= lastEpoch.add(timePerEpoch)));
-    }
-
-    function isEpochOverdue() public view returns (bool){
-        return((block.timestamp >= lastEpoch.add(timePerEpoch.add(timeForKeeperToConvert))));
     }
 
     function _redirectProfits() internal {
