@@ -5,8 +5,7 @@ from brownie import interface
 from brownie import reverts
 
 
-def testFarmContainerLQDR(accounts, yieldRedirectFarm, chain):
-    wftm = interface.ERC20('0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83')
+def test_farm_container_lqdr_vault(accounts, yieldRedirectFarm, chain, wftm):
     lp = interface.ERC20('0x4Fe6f19031239F105F753D1DF8A0d24857D0cAA2')
     farmToken = interface.ERC20('0x10b620b2dbac4faa7d7ffd71da486f5d44cd86f9')
     farmTokenWhale = '0x3Ae658656d1C526144db371FaEf2Fff7170654eE'
@@ -23,7 +22,7 @@ def testFarmContainerLQDR(accounts, yieldRedirectFarm, chain):
     gohm = interface.ERC20('0x91fa20244Fb509e8289CA630E5db3E9166233FDc')
 
     swapAsset = usdc
-    rewaredAsset = usdc
+    rewaredAsset = yvUSDC
 
 
     owner = accounts[0]

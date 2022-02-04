@@ -5,9 +5,7 @@ from brownie import interface
 from brownie import reverts
 
 
-
-def testVaultContainer(accounts, yieldRedirect, chain):
-    wftm = interface.ERC20('0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83')
+def test_vault_container(accounts, yieldRedirect, chain, wftm):
     usdc = interface.ERC20('0x04068DA6C83AFCFA0e13ba15A6696662335D5B75')
 
     yvFTM = interface.ERC20('0x0DEC85e74A92c52b7F708c4B10207D9560CEFaf0')
@@ -19,8 +17,6 @@ def testVaultContainer(accounts, yieldRedirect, chain):
     depositor = accounts[0] #this would be user that wants to redirect yield from YVDAI to buying OHM
     depositor1 = accounts[1] #this would be user that wants to redirect yield from YVDAI to buying OHM
     user = accounts[2] #this would be user that wants to redirect yield from YVDAI to buying OHM
-
-
 
     router = '0xF491e7B69E4244ad4002BC14e878a34207E38c29'
     container = yieldRedirect.deploy(wftm, yvUSDC, usdc, yvFTM, router , wftm ,{"from": owner})
