@@ -21,7 +21,8 @@ abstract contract helpers is Ownable {
 
     mapping(address => uint256) private _balances;
     uint256 private _totalSupply;
-
+    bool public isActive;
+    uint256 public tvlLimit = uint(-1);
 
     address public keeper;
     address public strategist; 

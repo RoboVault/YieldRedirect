@@ -40,7 +40,6 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
     uint256 public profitFee = 300; // 3% default
     uint256 constant profitFeeMax = 1000; // 10%
     uint256 public reserveAllocation = 500; // 5% default
-    uint256 public tvlLimit;
     // amount of profit converted each Epoch (don't convert everything to smooth returns)
     uint256 public profitConversionPercent = 5000; // 50% default 
     uint256 public minProfitThreshold; // minimum amount of profit in order to conver to target token
@@ -77,7 +76,7 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
     function deposit(uint256 _amount) public nonReentrant
     {
         require(_amount > 0, "deposit must be greater than 0");
-        bool withinTvlLimit = _amount.add(estimatedTotalAssets()) >= tvlLimit;
+        bool withinTvlLimit = _amount.add(estimatedTotalAssets()) <= tvlLimit;
         require(withinTvlLimit, "deposit greater than TVL Limit");
         uint256 currrentBalance = balanceOf(msg.sender);
 
@@ -131,7 +130,7 @@ contract yieldRedirect is vaultHelpers, rewardDistributor {
         _updateEligibleEpochRewards(_amt);
     }
 
-    function harvest() public nonReentrant {
+    function claimRewards() public nonReentrant {
         uint256 pendingRewards = getUserRewards(msg.sender);
         require(pendingRewards > 0, "user must have balance to claim"); 
         _disburseRewards(msg.sender);

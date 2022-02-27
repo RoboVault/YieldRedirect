@@ -40,7 +40,6 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
 
     uint256 public profitFee = 300; // 3% default
     uint256 constant profitFeeMax = 500; // 50%
-    uint256 public tvlLimit;
     
     // amount of profit converted each Epoch (don't convert everything to smooth returns)
     uint256 public profitConversionPercent = 5000; // 50% default 
@@ -80,7 +79,12 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
 
     }
 
-
+    // emergency function to turn off everything i.e. withdraw everything from farm & set TVL limit to 0
+    function deactivate() external onlyAuthorized {
+        _withdrawAmountBase(farmBalance());
+        isActive = false;
+        tvlLimit = 0;
+    }
 
     // if there are multiple reward tokens we can call this 
     function addFarmToken(address _token) external onlyAuthorized {
@@ -99,7 +103,7 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
     }
 
 
-    function removeToken(address _token) external onlyAuthorized {
+    function removeFarmToken(address _token) external onlyAuthorized {
         //require(!paused(), "PAUSED");
         uint256 tokenIndex = _findToken(_token);
         require(tokenIndex != uint256(-1), "NO SUCH TOKEN");
@@ -118,7 +122,7 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
     function deposit(uint256 _amount) public nonReentrant
     {
         require(_amount > 0, "deposit must be greater than 0");
-        bool withinTvlLimit = _amount.add(estimatedTotalAssets()) >= tvlLimit;
+        bool withinTvlLimit = _amount.add(estimatedTotalAssets()) <= tvlLimit;
         require(withinTvlLimit, "deposit greater than TVL Limit");
         uint256 currrentBalance = balanceOf(msg.sender);
 
