@@ -33,9 +33,13 @@ def test_operation(chain, accounts, gov, token, yieldRedirect, user1, user2 ,str
     assert yieldRedirect.estimatedTotalAssets() ==  amount
 
     chain.sleep(10)
+    chain.mine(1)
+
     yieldRedirect.convertProfits({"from": gov})
 
     chain.sleep(10000)
+    chain.mine(1)
+
 
     yieldRedirect.convertProfits({"from": gov})
 
@@ -65,6 +69,7 @@ def test_operation_multiple_users(chain, accounts, gov, token, yieldRedirect, us
     assert yieldRedirect.estimatedTotalAssets() ==  amount
 
     chain.sleep(10)
+    chain.mine(1)
     with reverts() : 
         yieldRedirect.convertProfits({"from": user1})
     yieldRedirect.convertProfits({"from": gov})
@@ -73,12 +78,16 @@ def test_operation_multiple_users(chain, accounts, gov, token, yieldRedirect, us
     yieldRedirect.deposit(amount, {"from": user2})
 
     chain.sleep(10000)
+    chain.mine(1)
+
     assert yieldRedirect.getUserRewards(user1) == rewardToken.balanceOf(yieldRedirect)
     assert yieldRedirect.getUserRewards(user2) == 0
 
     yieldRedirect.convertProfits({"from": gov})
 
     chain.sleep(10000)
+    chain.mine(1)
+
     yieldRedirect.convertProfits({"from": gov})
     
     # there will be some dust here so use pytest.approx
