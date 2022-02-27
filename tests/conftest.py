@@ -132,3 +132,9 @@ def yieldRedirect(strategist, keeper, gov, conf):
     yieldRedirect = yieldRedicrectFarm.deploy(conf['token'], conf['targetToken'], conf['swapToken'], conf['farmAddress'], conf['farmToken'], conf['router'], conf['weth'], conf['pid'], conf['farmType'], {'from': gov})
 
     yield yieldRedirect
+
+# Function scoped isolation fixture to enable xdist.
+# Snapshots the chain before each test and reverts after test completion.
+@pytest.fixture(scope="function", autouse=True)
+def shared_setup(fn_isolation):
+    pass

@@ -23,7 +23,7 @@ def test_deposit_withdraw(chain, accounts, gov, token, yieldRedirect, user1, use
         yieldRedirect.withdraw(amount, {"from": user1})
 
 
-def test_operation(chain, accounts, gov, token, yieldRedirect, user1, user2 ,strategist, amount, conf):
+def test_operation_harvest(chain, accounts, gov, token, yieldRedirect, user1, user2 ,strategist, amount, conf):
 
     rewardToken = interface.IERC20Extended(conf['targetToken'])
     user_balance_before = token.balanceOf(user1)
@@ -56,6 +56,42 @@ def test_operation(chain, accounts, gov, token, yieldRedirect, user1, user2 ,str
     yieldRedirect.withdraw(amount, {"from": user1})
 
     assert token.balanceOf(user1) == user_balance_before
+
+def test_operation_withdraw(chain, accounts, gov, token, yieldRedirect, user1, user2 ,strategist, amount, conf):
+
+    rewardToken = interface.IERC20Extended(conf['targetToken'])
+    user_balance_before = token.balanceOf(user1)
+    token.approve(yieldRedirect.address, amount, {"from": user1})
+    yieldRedirect.deposit(amount, {"from": user1})
+    assert token.balanceOf(user1) == user_balance_before - amount 
+    assert yieldRedirect.estimatedTotalAssets() ==  amount
+
+    chain.sleep(10)
+    chain.mine(1)
+
+    yieldRedirect.convertProfits({"from": gov})
+
+    chain.sleep(10000)
+    chain.mine(1)
+
+
+    yieldRedirect.convertProfits({"from": gov})
+
+    pendingRewards = yieldRedirect.getUserRewards(user1)
+    print("Pending Rewards")
+    print(pendingRewards)
+
+
+    yieldRedirect.withdraw(amount, {"from": user1})
+
+    # when user withdraws should harvest for them 
+    assert token.balanceOf(user1) == user_balance_before
+    assert yieldRedirect.getUserRewards(user1) == 0 
+    assert rewardToken.balanceOf(user1) == pendingRewards
+    with reverts() : 
+        yieldRedirect.harvest({"from": user1})
+
+
 
 def test_operation_multiple_users(chain, accounts, gov, token, yieldRedirect, user1, user2 ,strategist, amount, conf):
 
