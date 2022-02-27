@@ -35,12 +35,13 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
     using SafeMath for uint256;
 
     IERC20 public base;
-    IERC20 public farmToken;
+    IERC20[] public farmTokens;
     IERC20 public swapToken;
 
     uint256 public profitFee = 300; // 3% default
     uint256 constant profitFeeMax = 500; // 50%
     uint256 public tvlLimit;
+    
     // amount of profit converted each Epoch (don't convert everything to smooth returns)
     uint256 public profitConversionPercent = 5000; // 50% default 
     uint256 public minProfitThreshold; // minimum amount of profit in order to conver to target token
@@ -61,7 +62,9 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
     ) public {
         base = IERC20(_base);
         targetToken = IERC20(_targetToken);
-        farmToken = IERC20(_farmToken);
+        IERC20 farmToken = IERC20(_farmToken);
+        farmToken.approve(_router, uint(-1));
+        farmTokens.push(farmToken);
         swapToken = IERC20(_swapToken);
         useTargetVault = _targetToken != _swapToken;
         if (useTargetVault){
@@ -71,12 +74,45 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
         farmAddress = _farmAddress;
         router = _router;
         base.approve(_farmAddress, uint(-1));
-        farmToken.approve(router, uint(-1));
         weth = _weth;
         feeToAddress = owner();
         farmType = _farmType;
 
     }
+
+
+
+    // if there are multiple reward tokens we can call this 
+    function addFarmToken(address _token) external onlyAuthorized {
+        IERC20 newFarmToken = IERC20(_token);
+        newFarmToken.approve(router, uint(-1));
+        farmTokens.push(newFarmToken);
+    }
+
+    function _findToken(address _token) internal view returns (uint256) {
+        for (uint256 i = 0; i < farmTokens.length; i++){
+            if (_token == address(farmTokens[i])){
+                return i;
+            }
+        } 
+        return uint256(-1);
+    }
+
+
+    function removeToken(address _token) external onlyAuthorized {
+        //require(!paused(), "PAUSED");
+        uint256 tokenIndex = _findToken(_token);
+        require(tokenIndex != uint256(-1), "NO SUCH TOKEN");
+
+        uint256 i = tokenIndex;
+        while(i < farmTokens.length - 1) {
+            farmTokens[i] = farmTokens[i + 1];
+            i++;
+        }
+        delete farmTokens[farmTokens.length - 1];
+        farmTokens.pop();
+    }
+
 
     // user deposits token to yield redirector in exchange for pool shares which can later be redeemed for assets + accumulated yield
     function deposit(uint256 _amount) public nonReentrant
@@ -208,13 +244,12 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
 
     function _convertProfitsInternal() internal {
         _harvest();
-        uint256 preSwapBalance = targetToken.balanceOf(address(this));
 
-        bool sufficientProfits = farmToken.balanceOf(address(this)) > minProfitThreshold;
+        uint256 preSwapBalance = targetToken.balanceOf(address(this));
         bool depositorsEligible = eligibleEpochRewards > 0;
 
         // only convert profits if there is sufficient profit & users are eligible to start receiving rewards this epoch
-        if (sufficientProfits && depositorsEligible){
+        if (depositorsEligible){
             _redirectProfits();
             if (useTargetVault){
                 _depositSwapToTargetVault();
@@ -229,12 +264,18 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
     }
 
     function _redirectProfits() internal {
-        
-        uint256 profitConverted = farmToken.balanceOf(address(this)).mul(profitConversionPercent).div(BPS_adj);
-        uint256 swapAmt = Math.min(profitConverted, farmToken.balanceOf(address(this)));
-        uint256 amountOutMin = 0; // TO DO make sure don't get front run 
-        address[] memory path = _getTokenOutPath(address(farmToken), address(swapToken), weth);
-        IUniswapV2Router01(router).swapExactTokensForTokens(swapAmt, amountOutMin, path, address(this), now);
+        for (uint i=0; i<farmTokens.length; i++) {
+            IERC20 farmToken = farmTokens[i];
+            uint256 profitConverted = farmToken.balanceOf(address(this)).mul(profitConversionPercent).div(BPS_adj);
+            uint256 swapAmt = Math.min(profitConverted, farmToken.balanceOf(address(this)));
+            uint256 fee = swapAmt.mul(profitFee).div(BPS_adj);
+            uint256 amountOutMin = 0;
+            farmToken.transfer(feeToAddress, fee);
+            address[] memory path = _getTokenOutPath(address(farmToken), address(swapToken), weth);
+            if (profitConverted > 0){
+                IUniswapV2Router01(router).swapExactTokensForTokens(swapAmt.sub(fee), amountOutMin, path, address(this), now);
+            }
+        }
     }
 
     function _depositSwapToTargetVault() internal {
@@ -246,14 +287,11 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
 
     function _updateRewardData(uint256 _preSwapBalance) internal {
         uint256 amountOut = (targetToken.balanceOf(address(this)).sub(_preSwapBalance));
-        uint256 fee = _calcFee(amountOut);
-        targetToken.transfer(feeToAddress, fee);
-        epochRewards[epoch] = amountOut.sub(fee); 
+        epochRewards[epoch] = amountOut; 
         /// we use this instead of total Supply as users that just deposited in current epoch are not eligible for rewards 
         epochBalance[epoch] = eligibleEpochRewards;
         /// set to equal total Supply as all current users with deposits are eligible for next epoch rewards 
         eligibleEpochRewards = totalSupply();
-
     }
 
     function _updateEpoch() internal {
