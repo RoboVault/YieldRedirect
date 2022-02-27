@@ -18,6 +18,9 @@ import "../interfaces/vaults.sol";
 import './rewardDistributor.sol';
 import './farmHelpers.sol';
 
+interface IERC20Extended is IERC20 {
+    function decimals() external view returns (uint8);
+}
 
 /*
 The vault container allows users to deposit funds which are then deployed to a single asset vault i.e YEARN / ROBOVAULT 
@@ -173,8 +176,9 @@ contract yieldRedirectFarm is farmHelpers, rewardDistributor {
         base.safeTransfer(msg.sender, withdrawAmt);
         _disburseRewards(msg.sender);
         _updateUserInfo(msg.sender, epoch);
-        
-        _updateEligibleEpochRewards(_amt);
+        if (userInfo[msg.sender].epochStart < epoch){
+            _updateEligibleEpochRewards(_amt);
+        }
     }
 
     function harvest() public nonReentrant {
