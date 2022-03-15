@@ -23,6 +23,8 @@ struct UserInfo {
 interface IRewardDistributor {
     function isEpochFinished() external view returns (bool);
     function processEpoch(MultiRewards[] calldata _rewards) external;
+    function onDeposit(address _user, uint256 _beforeBalance) external;
+    function onWithdraw(address _user, uint256 _amount) external;
 }
 
 interface IRedirectVault {
@@ -120,7 +122,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
 
 
     // amount of profit converted each Epoch (don't convert everything to smooth returns)
-    uint256 public profitConversionPercent = 5000; // 50% default 
+    uint256 public profitConversionPercent = 10000; // 100% default 
     uint256 public minProfitThreshold; // minimum amount of profit in order to conver to target token
     uint256 public profitFee = 500; // 5% default
     uint256 constant profitFeeMax = 2000; // 20% max
@@ -196,16 +198,28 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
 
     function _redirectProfits(MultiRewards[] calldata _rewards) internal {
         for (uint i = 0; i < _rewards.length; i++) {
-            IERC20 rewardToken = IERC20(_rewards[i].token);
-            uint256 profitConverted = rewardToken.balanceOf(address(this)).mul(profitConversionPercent).div(BPS_ADJ);
-            uint256 swapAmt = Math.min(profitConverted, rewardToken.balanceOf(address(this)));
-            uint256 fee = swapAmt.mul(profitFee).div(BPS_ADJ);
-            uint256 amountOutMin = 0;
-            rewardToken.transfer(feeAddress, fee);
-            address[] memory path = _getTokenOutPath(address(rewardToken), address(targetToken), weth);
-            if (profitConverted > 0){
-                IUniswapV2Router01(router).swapExactTokensForTokens(swapAmt.sub(fee), amountOutMin, path, address(this), block.timestamp);
-            }
+            _swapTokenToTarget(_rewards[i].token);
+        }
+    }
+
+    function manualRedirect(address token) external onlyAuthorized {
+        require (token != address(targetToken));
+        _swapTokenToTarget(token);
+    }
+
+    function _swapTokenToTarget(address token) internal {
+        IERC20 rewardToken = IERC20(token);
+        uint256 swapAmt = rewardToken.balanceOf(address(this)).mul(profitConversionPercent).div(BPS_ADJ);
+        uint256 fee = swapAmt.mul(profitFee).div(BPS_ADJ);
+        rewardToken.transfer(feeAddress, fee);
+        if (swapAmt > 0){
+            IUniswapV2Router01(router).swapExactTokensForTokens(
+                swapAmt.sub(fee), 
+                0, 
+                _getTokenOutPath(address(rewardToken), address(targetToken), weth),
+                address(this), 
+                block.timestamp
+            );
         }
     }
 
@@ -225,7 +239,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         _updateUserInfo(user, epoch + 1);
     }
 
-    function onWithraw(address _user, uint256 _amount) external onlyVault {
+    function onWithdraw(address _user, uint256 _amount) external onlyVault {
         uint256 rewards = getUserRewards(_user);
         address user = msg.sender;
 

@@ -40,6 +40,10 @@ contract Authorized is Context {
         return _management;
     }
 
+    function isAuthorized(address _addr) public view returns (bool) {
+        return governance() == _addr || management() == _addr;
+    }
+
     function setGoveranance(address newGovernance) external onlyGovernance {
         _pendingGovernance = newGovernance;
     }

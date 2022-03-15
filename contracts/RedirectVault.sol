@@ -157,7 +157,7 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
             shares = (_amountAfterDeposit.mul(totalSupply())).div(_pool);
         }
         _mint(msg.sender, shares);
-        distributor.onDeposit(msg.sender, _before);
+        IRewardDistributor(distributor).onDeposit(msg.sender, _before);
         earn();
         incrementDeposits(_amount);
     }
@@ -200,7 +200,7 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
             }
         }
         token.safeTransfer(msg.sender, r);
-        distributor.onWithdraw(msg.sender, _shares);
+        IRewardDistributor(distributor).onWithdraw(msg.sender, _shares);
         incrementWithdrawals(r);
     }
 
