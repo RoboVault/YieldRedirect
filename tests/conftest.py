@@ -127,7 +127,7 @@ def weth_amout(user, weth):
 
 
 @pytest.fixture
-def yieldRedirect(strategist, keeper, gov, conf):
+def redirect_vault(RedirectVault, strategist, keeper, gov, conf):
     yieldRedicrectFarm = project.YieldredirectProject.yieldRedirectFarm
     yieldRedirect = yieldRedicrectFarm.deploy(conf['token'], conf['targetToken'], conf['swapToken'], conf['farmAddress'], conf['farmToken'], conf['router'], conf['weth'], conf['pid'], conf['farmType'], {'from': gov})
 
