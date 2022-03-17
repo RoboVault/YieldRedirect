@@ -13,9 +13,9 @@ interface IStrategy {
     // returns the balance of all tokens managed by the strategy
     function balanceOf() external view returns (uint256);
 
-    // Claims farmed tokens and sends them to the vault. Only callable from 
+    // Claims farmed tokens and sends them to _to (Reward Distributor). Only callable from 
     // the vault
-    function claim() external returns (MultiRewards[] calldata _rewards);
+    function claim(address _to) external returns (MultiRewards[] memory _rewards);
 
     // withdraws all tokens and sends them back to the vault
     function retireStrat() external;
@@ -28,7 +28,4 @@ interface IStrategy {
 
     // unpauses deposits and maxes out allowances again
     function unpause() external;
-
-    // updates Total Fee
-    function updateTotalFee(uint256 _totalFee) external;
 }

@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./interfaces/uniswap.sol";
+import "./interfaces/IRedirectVault.sol";
 import { IVault } from "./interfaces/IVault.sol";
 import { MultiRewards } from "./types/MultiRewards.sol";
 
@@ -25,13 +26,8 @@ interface IRewardDistributor {
     function processEpoch(MultiRewards[] calldata _rewards) external;
     function onDeposit(address _user, uint256 _beforeBalance) external;
     function onWithdraw(address _user, uint256 _amount) external;
-}
-
-interface IRedirectVault {
-    function owner() external view returns (address);
-    function isAuthorized(address _addr) external view returns (bool);
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address _account) external view returns (uint256);
+    function permitRewardToken(address _token) external;
+    function unpermitRewardToken(address _token) external;
 }
 
 contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
@@ -48,15 +44,13 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     IVault public targetVault;
     address public redirectVault;
     address public router;
-    address public weth; 
+    address public weth = 0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83; 
     
 
     // tracks total balance of base that is eligible for rewards in given epoch (as new deposits won't receive rewards until next epoch)
     uint256 eligibleEpochRewards;
     uint256 public epoch = 0;
     uint256 public lastEpoch;
-    uint256 public timePerEpoch = 1; 
-    uint256 constant timePerEpochLimit = 259200;
     uint256 constant BPS_ADJ = 10000;
     uint256 public timeForKeeperToConvert = 3600;
 
@@ -71,7 +65,6 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     mapping (address => uint256) public totalClaimed;
 
 
-    event RewardsClaimed(MultiRewards[] rewards);
     event UserHarvested(address user, uint256 rewards);
 
 
@@ -83,13 +76,24 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         address _redirectVault, 
         address _router,
         address _targetToken,
-        address _targetVault
-    ) public {
+        address _targetVault,
+        address _feeAddress
+    ) {
         router = _router;
         redirectVault = _redirectVault;
         targetToken = IERC20(_targetToken);
         targetVault = IVault(_targetVault);
+        feeAddress = _feeAddress;
         require (_targetToken == IVault(targetVault).token(), "Vault.token() miss-match");
+
+        useTargetVault = false;
+        // if (_targetVault == address(0)) {
+        //     useTargetVault = false;
+        // } else {
+        //     useTargetVault = true;
+        //     // Approve allowance for the vault
+        //     targetToken.safeApprove(_targetVault, type(uint256).max);
+        // }
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -118,6 +122,21 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     /// @param _feeAddress The new feeAddress setting
     function setFeeAddress(address _feeAddress) external onlyAuthorized {
         feeAddress = _feeAddress;
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                        SET EPOCH TIME CONFIGURATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice todo
+    uint256 public timePerEpoch = 60 * 60 * 12; // Daily 
+    uint256 constant timePerEpochLimit = 259200;
+    
+    /// @notice set timePerEpoch
+    /// @param _epochTime todo
+    function setEpochDuration(uint256 _epochTime) external onlyAuthorized{
+        require(_epochTime <= timePerEpochLimit);
+        timePerEpoch = _epochTime;
     }
 
 
@@ -187,6 +206,9 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     }
 
     function targetVaultBalance() public view returns (uint256) {
+        if (address(targetVault) == address(0)) {
+            return 0;
+        }
         return targetVault.balanceOf(address(this))
                 .mul(targetVault.pricePerShare())
                 .div(10 ** targetVault.decimals());
@@ -225,31 +247,29 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
 
     function onDeposit(address _user, uint256 _beforeBalance) external onlyVault {
         uint256 rewards = getUserRewards(_user);
-        address user = msg.sender;
 
         if (rewards > 0) {
             // claims all rewards 
-            _disburseRewards(user, rewards);
+            _disburseRewards(_user, rewards);
 
             // to make accounting work in tracking rewards for target asset this user isn't eligible for next epoch 
             _updateEligibleEpochRewards(_beforeBalance);
         }
 
         // to prevent users leaching i.e. deposit just before epoch rewards distributed user will start to be eligible for rewards following epoch
-        _updateUserInfo(user, epoch + 1);
+        _updateUserInfo(_user, epoch + 1);
     }
 
     function onWithdraw(address _user, uint256 _amount) external onlyVault {
         uint256 rewards = getUserRewards(_user);
-        address user = msg.sender;
 
         if (rewards > 0) {
             // claims all rewards 
-            _disburseRewards(user, rewards);
+            _disburseRewards(_user, rewards);
         }
 
-        _updateUserInfo(user, epoch);
-        if (userInfo[user].epochStart < epoch){
+        _updateUserInfo(_user, epoch);
+        if (userInfo[_user].epochStart < epoch){
             _updateEligibleEpochRewards(_amount);
         }
     }
@@ -272,6 +292,10 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     function getUserRewards(address _user) public view returns (uint256) {
         UserInfo memory user = userInfo[_user];
         uint256 rewardStart = user.epochStart;
+        if (rewardStart == 0) {
+            return 0;
+        }
+
         uint256 rewards = 0;
         uint256 userEpochRewards;
         if(epoch > rewardStart){
@@ -340,5 +364,13 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
             _path[1] = _weth;
             _path[2] = _token_out;
         }
+    }
+
+    function permitRewardToken(address _token) external onlyAuthorized {
+        IERC20(_token).safeApprove(router, type(uint256).max);
+    }
+
+    function unpermitRewardToken(address _token) external onlyAuthorized {
+        IERC20(_token).safeApprove(router, 0);
     }
 }

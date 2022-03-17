@@ -22,6 +22,14 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
+    struct StratCandidate {
+        address implementation;
+        uint proposedTime;
+    }
+
+    // The last proposed strategy to switch to.
+    StratCandidate public stratCandidate;
+
     address public strategy;
     IRewardDistributor public distributor;
 
@@ -36,6 +44,7 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
 
     // The token the vault accepts and looks to maximize.
     IERC20 public token;
+    uint256 public immutable approvalDelay;
 
     /**
      * @dev simple mappings used to determine PnL denominated in LP tokens,
@@ -45,10 +54,11 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
     mapping(address => uint256) public cumulativeWithdrawals;
 
     event TvlCapUpdated(uint256 newTvlCap);
-
+    event NewStratCandidate(address implementation);
+    event UpgradeStrat(address implementation);
     event DepositsIncremented(address user, uint256 amount, uint256 total);
     event WithdrawalsIncremented(address user, uint256 amount, uint256 total);
-    event RewardsClaimed(MultiRewards[] rewards);
+    event RewardsClaimed(address distributor, MultiRewards[] rewards);
 
     /**
      * @dev Sets the value of {token} to the token that the vault will
@@ -58,27 +68,28 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
      * @param _token the token to maximize.
      * @param _name the name of the vault token.
      * @param _symbol the symbol of the vault token.
-     * @param _depositFee one-time fee taken from deposits to this vault (in basis points)
      * @param _tvlCap initial deposit cap for scaling TVL safely
      */
     constructor(
         address _token,
         string memory _name,
         string memory _symbol,
-        uint256 _depositFee,
         uint256 _tvlCap,
         address _router,
         address _targetToken,
-        address _targetVault
+        address _targetVault,
+        address _feeAddress,
+        uint256 _approvalDelay
     ) ERC20(string(_name), string(_symbol)) {
         token = IERC20(_token);
-        depositFee = _depositFee;
         tvlCap = _tvlCap;
+        approvalDelay = _approvalDelay;
         distributor = new RewardDistributor(
             address(this),
             _router,
             _targetToken,
-            _targetVault
+            _targetVault,
+            _feeAddress
         );
     }
 
@@ -124,6 +135,15 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
     }
 
     /**
+     * @dev Function for various UIs to display the current value of one of our yield tokens.
+     * Returns an uint256 with 18 decimals of how much underlying asset one vault share represents.
+     */
+    function totalAssets() public view returns (uint256) {
+        return
+            totalSupply() == 0 ? 1e18 : balance().mul(1e18).div(totalSupply());
+    }
+
+    /**
      * @dev A helper function to call deposit() with all the sender's funds.
      */
     function depositAll() external {
@@ -147,17 +167,14 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
         token.safeTransferFrom(msg.sender, address(this), _amount);
         uint256 _after = token.balanceOf(address(this));
         _amount = _after.sub(_before);
-        uint256 _amountAfterDeposit = (
-            _amount.mul(PERCENT_DIVISOR.sub(depositFee))
-        ).div(PERCENT_DIVISOR);
         uint256 shares = 0;
         if (totalSupply() == 0) {
-            shares = _amountAfterDeposit;
+            shares = _amount;
         } else {
-            shares = (_amountAfterDeposit.mul(totalSupply())).div(_pool);
+            shares = (_amount.mul(totalSupply())).div(_pool);
         }
         _mint(msg.sender, shares);
-        IRewardDistributor(distributor).onDeposit(msg.sender, _before);
+        distributor.onDeposit(msg.sender, _before);
         earn();
         incrementDeposits(_amount);
     }
@@ -170,6 +187,14 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
         uint256 _bal = available();
         token.safeTransfer(strategy, _bal);
         IStrategy(strategy).deposit();
+    }
+
+    function permitRewardToken(address _token) external onlyAuthorized {
+        distributor.permitRewardToken(_token);
+    }
+
+    function unpermitRewardToken(address _token) external onlyAuthorized {
+        distributor.unpermitRewardToken(_token);
     }
 
     /**
@@ -200,12 +225,8 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
             }
         }
         token.safeTransfer(msg.sender, r);
-        IRewardDistributor(distributor).onWithdraw(msg.sender, _shares);
+        distributor.onWithdraw(msg.sender, _shares);
         incrementWithdrawals(r);
-    }
-
-    function updateDepositFee(uint256 fee) public onlyAuthorized {
-        depositFee = fee;
     }
 
     /**
@@ -227,32 +248,26 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
     /** 
      *
      */
-    function harvestTrigger() public returns (bool) {
-        return IRewardDistributor(distributor).isEpochFinished();
+    function harvestTrigger() public view returns (bool) {
+        return distributor.isEpochFinished();
     }
 
 
     /** 
      *
      */
-    function harvest() public onlyAuthorized {
+    function harvest() public onlyKeeper {
         // Must wait for the epoch to complete before harvesting
         require (distributor.isEpochFinished(), "Epoch not finished");
 
-        MultiRewards[] memory rewards = IStrategy(strategy).claim();
+        MultiRewards[] memory rewards = IStrategy(strategy).claim(address(distributor));
 
         // Test the strategy is being honest
         for (uint i = 0; i < rewards.length; i++) {
-            uint256 rewardBalance = IERC20(rewards[i].token).balanceOf(address(this));
+            uint256 rewardBalance = IERC20(rewards[i].token).balanceOf(address(distributor));
             require (rewardBalance >= rewards[i].amount, "Dishonest Strategy");
         }
-        emit RewardsClaimed(rewards);
-
-        // Send rewards to reward distributor
-        for (uint i = 0; i < rewards.length; i++) {
-            uint256 rewardBalance = IERC20(rewards[i].token).balanceOf(address(this));
-            IERC20(rewards[i].token).safeTransfer(address(distributor), rewardBalance);
-        }
+        emit RewardsClaimed(address(distributor), rewards);
         
         // send profit to reward distributor
         distributor.processEpoch(rewards);
@@ -288,5 +303,36 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
 
         uint256 amount = IERC20(_token).balanceOf(address(this));
         IERC20(_token).safeTransfer(msg.sender, amount);
+    }
+
+    /**
+     * @dev Sets the candidate for the new strat to use with this vault.
+     * @param _implementation The address of the candidate strategy.
+     */
+    function proposeStrat(address _implementation) external onlyGovernance {
+        stratCandidate = StratCandidate({
+            implementation: _implementation,
+            proposedTime: block.timestamp
+         });
+        emit NewStratCandidate(_implementation);
+    }
+
+    /**
+     * @dev It switches the active strat for the strat candidate. After upgrading, the
+     * candidate implementation is set to the 0x00 address, and proposedTime to a time
+     * happening in +100 years for safety.
+     */
+    function upgradeStrat() external onlyGovernance {
+        require(stratCandidate.implementation != address(0), "There is no candidate");
+        require(stratCandidate.proposedTime.add(approvalDelay) < block.timestamp, "Delay has not passed");
+
+        emit UpgradeStrat(stratCandidate.implementation);
+
+        IStrategy(strategy).retireStrat();
+        strategy = stratCandidate.implementation;
+        stratCandidate.implementation = address(0);
+        stratCandidate.proposedTime = 5000000000;
+
+        earn();
     }
 }
