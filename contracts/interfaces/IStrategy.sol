@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: agpl-3.0
-import { MultiRewards } from "../types/MultiRewards.sol";
+import {MultiRewards} from "../types/MultiRewards.sol";
 
 pragma solidity 0.8.11;
 
@@ -13,9 +13,11 @@ interface IStrategy {
     // returns the balance of all tokens managed by the strategy
     function balanceOf() external view returns (uint256);
 
-    // Claims farmed tokens and sends them to _to (Reward Distributor). Only callable from 
+    // Claims farmed tokens and sends them to _to (Reward Distributor). Only callable from
     // the vault
-    function claim(address _to) external returns (MultiRewards[] memory _rewards);
+    function claim(address _to)
+        external
+        returns (MultiRewards[] memory _rewards);
 
     // withdraws all tokens and sends them back to the vault
     function retireStrat() external;

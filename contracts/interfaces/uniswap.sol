@@ -211,7 +211,9 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
 
 interface IUniswapV2Pair is IERC20Extended {
     function token0() external view returns (address);
+
     function token1() external view returns (address);
+
     function getReserves()
         external
         view

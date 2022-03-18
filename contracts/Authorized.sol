@@ -4,7 +4,6 @@ pragma solidity 0.8.11;
 
 import "@openzeppelin/contracts/utils/Context.sol";
 
-
 contract Authorized is Context {
     address private _governance;
     address private _management;
@@ -15,21 +14,23 @@ contract Authorized is Context {
     event UpdateManagement(address indexed management);
     event UpdateKeeper(address indexed keeper);
 
-    constructor () {
+    constructor() {
         _governance = _msgSender();
         _management = _msgSender();
         _keeper = _msgSender();
     }
 
     modifier onlyGovernance() {
-        require(governance() == _msgSender(), "Authorized: caller is not the governance");
+        require(
+            governance() == _msgSender(),
+            "Authorized: caller is not the governance"
+        );
         _;
     }
 
     modifier onlyAuthorized() {
         require(
-            governance() == _msgSender() || 
-            management() == _msgSender(), 
+            governance() == _msgSender() || management() == _msgSender(),
             "Authorized: caller is not the authorized"
         );
         _;
@@ -37,9 +38,9 @@ contract Authorized is Context {
 
     modifier onlyKeeper() {
         require(
-            governance() == _msgSender() || 
-            management() == _msgSender() || 
-            keeper() == _msgSender(), 
+            governance() == _msgSender() ||
+                management() == _msgSender() ||
+                keeper() == _msgSender(),
             "Authorized: caller is not the a keeper"
         );
         _;
@@ -76,7 +77,7 @@ contract Authorized is Context {
     }
 
     function acceptGovernance() external onlyGovernance {
-        require (_msgSender() == _pendingGovernance);
+        require(_msgSender() == _pendingGovernance);
         _governance = _pendingGovernance;
         emit UpdateGovernance(_governance);
     }

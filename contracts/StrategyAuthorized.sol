@@ -4,26 +4,27 @@ pragma solidity 0.8.11;
 
 import "@openzeppelin/contracts/utils/Context.sol";
 
-
 abstract contract StrategyAuthorized is Context {
     address private _strategist;
 
     event UpdateGovernance(address indexed governance);
     event UpdateManagement(address indexed management);
 
-    constructor () {
+    constructor() {
         _strategist = _msgSender();
     }
 
     modifier onlyGovernance() {
-        require(governance() == _msgSender(), "Authorized: caller is not the governance");
+        require(
+            governance() == _msgSender(),
+            "Authorized: caller is not the governance"
+        );
         _;
     }
 
     modifier onlyAuthorized() {
         require(
-            governance() == _msgSender() || 
-            strategist() == _msgSender(), 
+            governance() == _msgSender() || strategist() == _msgSender(),
             "Authorized: caller is not the authorized"
         );
         _;
