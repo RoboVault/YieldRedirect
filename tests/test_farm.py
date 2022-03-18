@@ -182,7 +182,7 @@ def test_authorization(chain, strategy, distributor, gov, token, yieldRedirect, 
     with reverts() : 
         yieldRedirect.setParamaters(5000, 200, 0, {"from": user1})
 
-    highProfitFee = 2000
+    highProfitFee = 2001
     # should fail if gov tries to set profit fee too high
     with reverts() : 
         yieldRedirect.setParamaters(5000, highProfitFee, 0, {"from": gov})

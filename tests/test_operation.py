@@ -202,7 +202,7 @@ def test_authorization(chain, strategy, distributor, gov, token, vault, user1, u
     highEpochDuration = 2592000000
     # should fail if gov tries to set Epoch Duration too high
     with reverts() : 
-        distributor.setEpochDuration(highEpochDuration, {"from": gov})
+        distributor.setEpochDuration(highEpochDuration, {"from": user1})
 
     """
     vault.deactivate({"from": gov})
