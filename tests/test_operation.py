@@ -24,7 +24,8 @@ def test_deposit_withdraw(vault, strategy, token, amount, user1, user2):
 
 def test_operation_harvest(vault, strategy, distributor, chain, accounts, gov, token, user1, user2, strategist, amount, conf):
 
-    rewardToken = interface.IERC20Extended(conf['targetToken'])
+    targetToken = interface.IERC20Extended(conf['targetToken'])
+    target_token_before = targetToken.balanceOf(user1)
     user_balance_before = token.balanceOf(user1)
     token.approve(vault.address, amount, {"from": user1})
     vault.deposit(amount, {"from": user1})
@@ -49,7 +50,11 @@ def test_operation_harvest(vault, strategy, distributor, chain, accounts, gov, t
     distributor.harvest({"from": user1})
 
     assert distributor.getUserRewards(user1) == 0 
-    assert rewardToken.balanceOf(user1) == pendingRewards
+    assert (targetToken.balanceOf(user1) - target_token_before) == pendingRewards
+
+    # ensure all earned tokens were paid out
+    assert distributor.targetBalance() == 0 
+
     with reverts() : 
         distributor.harvest({"from": user1})
 
@@ -83,7 +88,7 @@ def test_operation_withdraw(chain, strategy, distributor, gov, token, vault, use
 
 def test_multiple_deposits(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
 
-    rewardToken = interface.IERC20Extended(conf['targetToken'])
+    targetToken = interface.IERC20Extended(conf['targetToken'])
     user_balance_before = token.balanceOf(user1)
     depositAmt = int(amount / 3)
     token.approve(vault.address, amount, {"from": user1})
@@ -107,23 +112,26 @@ def test_multiple_deposits(chain, strategy, distributor, gov, token, vault, user
 
     # when user deposits should harvest for them 
     assert distributor.getUserRewards(user1) == 0 
-    assert rewardToken.balanceOf(user1) == pendingRewards
-    with reverts() : 
+    assert targetToken.balanceOf(user1) == pendingRewards
+    with reverts(): 
         distributor.harvest({"from": user1})
 
     chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
+
     vault.harvest({"from": gov})
-    assert distributor.getUserRewards(user1) == 0 
-    assert pytest.approx(distributor.getUserRewards(user2), rel = 2e-3) == rewardToken.balanceOf(distributor)
+    user1Rewards = distributor.getUserRewards(user1)
+    user2Rewards = distributor.getUserRewards(user2)
+    # The sum of user rewards should match the balance of the rewards dist
+    assert (user1Rewards + user2Rewards) == distributor.targetBalance()
     pendingRewards = distributor.getUserRewards(user2)
-    vault.harvest({"from": user2})
-    assert rewardToken.balanceOf(user2) == pendingRewards
+    distributor.harvest({"from": user2})
+    assert targetToken.balanceOf(user2) == pendingRewards
 
 
 def test_operation_multiple_users(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
 
-    rewardToken = interface.IERC20Extended(conf['targetToken'])
+    targetToken = interface.IERC20Extended(conf['targetToken'])
     user_balance_before = token.balanceOf(user1)
     user_balance_before2 = token.balanceOf(user2)
 
@@ -144,7 +152,7 @@ def test_operation_multiple_users(chain, strategy, distributor, gov, token, vaul
     chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
 
-    assert distributor.getUserRewards(user1) == rewardToken.balanceOf(vault)
+    assert distributor.getUserRewards(user1) == distributor.targetBalance()
     assert distributor.getUserRewards(user2) == 0
 
     vault.harvest({"from": gov})
@@ -155,10 +163,10 @@ def test_operation_multiple_users(chain, strategy, distributor, gov, token, vaul
     vault.harvest({"from": gov})
     
     # there will be some dust here so use pytest.approx
-    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 2e-3) == rewardToken.balanceOf(vault)
+    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 2e-3) == distributor.targetBalance()
 
     distributor.harvest({"from": user1})
-    vault.harvest({"from": user2})
+    distributor.harvest({"from": user2})
 
     assert (distributor.getUserRewards(user1) + distributor.getUserRewards(user2)) == 0
 
@@ -202,7 +210,7 @@ def test_authorization(chain, strategy, distributor, gov, token, vault, user1, u
     vault.deactivate({"from": gov})
 
     # after deactivating funds should be removed from farm 
-    assert token.balanceOf(vault) == amount
+    assert token.balanceOf(distributor) == amount
     assert vault.balance() ==  amount
     vault.withdraw(amount, {"from": user1})
     assert token.balanceOf(user1) == user_balance_before

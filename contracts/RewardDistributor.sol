@@ -109,8 +109,6 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         useTargetVault = _useTargetVault;
     }
 
-
-
     /*///////////////////////////////////////////////////////////////
                         FEE ADDRESS CONFIGURATION
     //////////////////////////////////////////////////////////////*/
@@ -128,7 +126,9 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
                         SET EPOCH TIME CONFIGURATION
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice todo
+    /// @notice timePerEpoch sets the minimum time that must elapsed betweem
+    /// harvests. During harvests the rewards tokens are swapped into the 
+    /// targetToken and user reward balances are updated. 
     uint256 public timePerEpoch = 60 * 60 * 12; // Daily 
     uint256 constant timePerEpochLimit = 259200;
     
@@ -317,7 +317,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     }
 
     function _updateEligibleEpochRewards(uint256 amt) internal {
-      eligibleEpochRewards = eligibleEpochRewards.sub(amt);
+        eligibleEpochRewards = eligibleEpochRewards.sub(amt);
     }
 
     function _updateUserInfo(address _user, uint256 _epoch) internal {

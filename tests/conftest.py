@@ -166,7 +166,7 @@ def lp_price(token, token_price):
 
 @pytest.fixture
 def amount(accounts, token, lp_price, user1, user2, conf):
-    amount = int((100000 / lp_price) * (10 ** token.decimals()))
+    amount = int((1000000 / lp_price) * (10 ** token.decimals()))
     # In order to get some funds for the token you are about to use,
     # it impersonate an exchange address to use it's funds.
     # reserve = accounts.at("0x39B3bd37208CBaDE74D0fcBDBb12D606295b430a", force=True) # WFTM

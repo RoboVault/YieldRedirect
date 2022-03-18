@@ -2,7 +2,7 @@ import pytest
 from brownie import interface
 from brownie import reverts
 
-def test_deposit_withdraw(chain, accounts, gov, token, yieldRedirect, user1, user2,strategist, amount, conf):
+def test_deposit_withdraw(chain, strategy, distributor, gov, token, yieldRedirect, user1, user2, strategist, amount, conf):
 
     user_balance_before = token.balanceOf(user1)
     token.approve(yieldRedirect.address, amount, {"from": user1})
@@ -23,7 +23,7 @@ def test_deposit_withdraw(chain, accounts, gov, token, yieldRedirect, user1, use
         yieldRedirect.withdraw(amount, {"from": user1})
 
 
-def test_operation_harvest(chain, accounts, gov, token, yieldRedirect, user1, user2 ,strategist, amount, conf):
+def test_operation_harvest(chain, strategy, distributor, gov, token, yieldRedirect, user1, user2, strategist, amount, conf):
 
     rewardToken = interface.IERC20Extended(conf['targetToken'])
     user_balance_before = token.balanceOf(user1)
@@ -37,7 +37,7 @@ def test_operation_harvest(chain, accounts, gov, token, yieldRedirect, user1, us
 
     yieldRedirect.convertProfits({"from": gov})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
 
 
@@ -57,7 +57,7 @@ def test_operation_harvest(chain, accounts, gov, token, yieldRedirect, user1, us
 
     assert token.balanceOf(user1) == user_balance_before
 
-def test_operation_withdraw(chain, accounts, gov, token, yieldRedirect, user1, user2 ,strategist, amount, conf):
+def test_operation_withdraw(chain, strategy, distributor, gov, token, yieldRedirect, user1, user2, strategist, amount, conf):
 
     rewardToken = interface.IERC20Extended(conf['targetToken'])
     user_balance_before = token.balanceOf(user1)
@@ -71,7 +71,7 @@ def test_operation_withdraw(chain, accounts, gov, token, yieldRedirect, user1, u
 
     yieldRedirect.convertProfits({"from": gov})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
 
 
@@ -81,7 +81,7 @@ def test_operation_withdraw(chain, accounts, gov, token, yieldRedirect, user1, u
     print("Pending Rewards")
     print(pendingRewards)
 
-def test_multiple_deposits(chain, accounts, gov, token, yieldRedirect, user1, user2 ,strategist, amount, conf):
+def test_multiple_deposits(chain, accounts, gov, token, yieldRedirect, user1, user2, strategist, amount, conf):
 
     rewardToken = interface.IERC20Extended(conf['targetToken'])
     user_balance_before = token.balanceOf(user1)
@@ -97,7 +97,7 @@ def test_multiple_deposits(chain, accounts, gov, token, yieldRedirect, user1, us
 
     yieldRedirect.convertProfits({"from": gov})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
     yieldRedirect.convertProfits({"from": gov})
 
@@ -112,7 +112,7 @@ def test_multiple_deposits(chain, accounts, gov, token, yieldRedirect, user1, us
     with reverts() : 
         yieldRedirect.harvest({"from": user1})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
     yieldRedirect.convertProfits({"from": gov})
     assert yieldRedirect.getUserRewards(user1) == 0 
@@ -122,7 +122,7 @@ def test_multiple_deposits(chain, accounts, gov, token, yieldRedirect, user1, us
     assert rewardToken.balanceOf(user2) == pendingRewards
 
 
-def test_operation_multiple_users(chain, accounts, gov, token, yieldRedirect, user1, user2 ,strategist, amount, conf):
+def test_operation_multiple_users(chain, strategy, distributor, gov, token, yieldRedirect, user1, user2, strategist, amount, conf):
 
     rewardToken = interface.IERC20Extended(conf['targetToken'])
     user_balance_before = token.balanceOf(user1)
@@ -142,7 +142,7 @@ def test_operation_multiple_users(chain, accounts, gov, token, yieldRedirect, us
     token.approve(yieldRedirect.address, amount, {"from": user2})
     yieldRedirect.deposit(amount, {"from": user2})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
 
     assert yieldRedirect.getUserRewards(user1) == rewardToken.balanceOf(yieldRedirect)
@@ -150,7 +150,7 @@ def test_operation_multiple_users(chain, accounts, gov, token, yieldRedirect, us
 
     yieldRedirect.convertProfits({"from": gov})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
 
     yieldRedirect.convertProfits({"from": gov})
@@ -171,7 +171,7 @@ def test_operation_multiple_users(chain, accounts, gov, token, yieldRedirect, us
     assert token.balanceOf(user1) == user_balance_before
     assert token.balanceOf(user2) == user_balance_before2
 
-def test_authorization(chain, accounts, gov, token, yieldRedirect, user1, user2,strategist, amount, conf):
+def test_authorization(chain, strategy, distributor, gov, token, yieldRedirect, user1, user2, strategist, amount, conf):
 
     user_balance_before = token.balanceOf(user1)
     token.approve(yieldRedirect.address, amount, {"from": user1})
