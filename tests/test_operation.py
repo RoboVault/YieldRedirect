@@ -57,12 +57,12 @@ def test_operation_harvest(vault, strategy, distributor, chain, accounts, gov, t
 
     assert token.balanceOf(user1) == user_balance_before
 
-def test_operation_withdraw(chain, accounts, gov, token, vault, user1, user2 ,strategist, amount, conf):
+def test_operation_withdraw(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
 
-    rewardToken = interface.IERC20Extended(conf['targetToken'])
     user_balance_before = token.balanceOf(user1)
     token.approve(vault.address, amount, {"from": user1})
     vault.deposit(amount, {"from": user1})
+
     assert token.balanceOf(user1) == user_balance_before - amount 
     assert vault.balance() ==  amount
 
@@ -71,7 +71,7 @@ def test_operation_withdraw(chain, accounts, gov, token, vault, user1, user2 ,st
 
     vault.harvest({"from": gov})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
 
 
@@ -81,7 +81,7 @@ def test_operation_withdraw(chain, accounts, gov, token, vault, user1, user2 ,st
     print("Pending Rewards")
     print(pendingRewards)
 
-def test_multiple_deposits(chain, accounts, gov, token, vault, user1, user2 ,strategist, amount, conf):
+def test_multiple_deposits(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
 
     rewardToken = interface.IERC20Extended(conf['targetToken'])
     user_balance_before = token.balanceOf(user1)
@@ -97,13 +97,12 @@ def test_multiple_deposits(chain, accounts, gov, token, vault, user1, user2 ,str
 
     vault.harvest({"from": gov})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
     vault.harvest({"from": gov})
 
     pendingRewards = distributor.getUserRewards(user1)
-    print("Pending Rewards")
-    print(pendingRewards)
+    print("Pending Rewards: {}".format(pendingRewards))
     vault.deposit(depositAmt, {"from": user1})
 
     # when user deposits should harvest for them 
@@ -112,17 +111,17 @@ def test_multiple_deposits(chain, accounts, gov, token, vault, user1, user2 ,str
     with reverts() : 
         distributor.harvest({"from": user1})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
     vault.harvest({"from": gov})
     assert distributor.getUserRewards(user1) == 0 
-    assert pytest.approx(distributor.getUserRewards(user2), rel = 2e-3) == rewardToken.balanceOf(vault)
+    assert pytest.approx(distributor.getUserRewards(user2), rel = 2e-3) == rewardToken.balanceOf(distributor)
     pendingRewards = distributor.getUserRewards(user2)
     vault.harvest({"from": user2})
     assert rewardToken.balanceOf(user2) == pendingRewards
 
 
-def test_operation_multiple_users(chain, accounts, gov, token, vault, user1, user2 ,strategist, amount, conf):
+def test_operation_multiple_users(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
 
     rewardToken = interface.IERC20Extended(conf['targetToken'])
     user_balance_before = token.balanceOf(user1)
@@ -142,7 +141,7 @@ def test_operation_multiple_users(chain, accounts, gov, token, vault, user1, use
     token.approve(vault.address, amount, {"from": user2})
     vault.deposit(amount, {"from": user2})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
 
     assert distributor.getUserRewards(user1) == rewardToken.balanceOf(vault)
@@ -150,7 +149,7 @@ def test_operation_multiple_users(chain, accounts, gov, token, vault, user1, use
 
     vault.harvest({"from": gov})
 
-    chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
 
     vault.harvest({"from": gov})
@@ -171,7 +170,7 @@ def test_operation_multiple_users(chain, accounts, gov, token, vault, user1, use
     assert token.balanceOf(user1) == user_balance_before
     assert token.balanceOf(user2) == user_balance_before2
 
-def test_authorization(chain, accounts, gov, token, vault, user1, user2,strategist, amount, conf):
+def test_authorization(chain, strategy, distributor, gov, token, vault, user1, user2,strategist, amount, conf):
 
     user_balance_before = token.balanceOf(user1)
     token.approve(vault.address, amount, {"from": user1})
