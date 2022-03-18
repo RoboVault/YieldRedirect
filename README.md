@@ -1,14 +1,25 @@
 # YieldRedirect
 
-High level diagram : https://docs.google.com/presentation/d/19rIYszHu9z9tMoAOn5ChnAcuUOKm3FGWityTPt_AweI/edit?usp=sharing
+![Yield Redirect Diagram](https://github.com/RoboVault/YieldRedirect/blob/smooth_refactor/YieldRedirect.png)
 
-Yield redirect has two versions 
-1) deposits assets (i.e. LP) to some yield farm & automatically converts farming rewards to some target asset (i.e USDC or yvUSDC) 
-2) deposits assets to some vault & automatically converts farming rewards to some target asset (i.e. deposit WFTM -> earn yield from yvWFTM -> convert yield to USDC)
+YieldRedirect is a new kind of vault. Rather than farming rewards being auto-compound back into the vault, the rewards are swapped into the vaults target token. For example, users can farm LQDR on OATH-FTM and all LQDR rewards could be swapped into USDC. The target farm and target token are configurable in the contracts constructor. 
+The vault supports LP farming and single-asset farming.
+in essence, users can DCA the target token while LP farming. 
 
-Target asset can be a token i.e. USDC or can be configured so that yields are swapped to USDC & deposited into a vault allowing users to later harvest IBT i.e. harvest yvUSDC so rewards are earning yield 
-(potential risks of using yvUSDC / rvUSDC is if vault deposit limit is reached then yield redirect will be bricked until)
-V1 will likelly be simply redirecting LP farming rewards to stable coins as MVP 
-with V2 introducing IBT as the target token 
+## Terminology
 
-A number of high level tests have been written and configured to test protocol using combination of Spooky / LQDR farms & yearn vaults. 
+- `RedirectVault`: A fork of Reapers Vaults, this is the vault interface for users to deposit and withdraw their lp tokens.
+- `Strategy`: A fork of Reapers farming strategies. This strategy farms LP and rather than autocompounding, when claim() is called by the vault, it sends the reward tokens to the RewardDistributor
+- `RewardDistributor`: All rewards are sent to the reward distributor which tracks rewards per-user. Rewards are recored in target token and tracked on an epoch basis, much like validator nodes. The reward accounting is separated from the vault and strategy to mitigate risk. If there's an issue in the RewardsDistributor, it cannot impact the funds deposited into the vault & strategy. 
+
+## Roles
+- `goveranance`: Most trusted role. Either goveranance contract or multisig. They can rug with upgradeStrat() however it is timelocked. 
+- `strategist`: developer role granted the permission to pause the strategy. Users can always withdraw from a paused strategy
+- `management`: another developer role granted the permission to modify the TVL cap and permit new reward tokens for the reward distributor to swap. Both low-risk functions.
+- `keeper`: the keeper role can harvest the RedirectVault once an epoch is complete. 
+
+
+## Getting Started
+
+Run tests
+`yarn test`

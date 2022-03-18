@@ -5,7 +5,7 @@ pragma solidity 0.8.11;
 import "./interfaces/IStrategy.sol";
 import "./types/MultiRewards.sol";
 import "./Authorized.sol";
-import { IRewardDistributor, RewardDistributor } from "./RewardDistributor.sol";
+import {IRewardDistributor, RewardDistributor} from "./RewardDistributor.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -24,7 +24,7 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
 
     struct StratCandidate {
         address implementation;
-        uint proposedTime;
+        uint256 proposedTime;
     }
 
     // The last proposed strategy to switch to.
@@ -98,7 +98,11 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
      * @param _strategy the vault's initial strategy
      */
 
-    function initialize(address _strategy) public onlyGovernance returns (bool) {
+    function initialize(address _strategy)
+        public
+        onlyGovernance
+        returns (bool)
+    {
         require(!initialized, "Contract is already initialized.");
         strategy = _strategy;
         initialized = true;
@@ -182,6 +186,8 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
     /**
      * @dev Function to send funds into the strategy and put them to work. It's primarily called
      * by the vault's deposit() function.
+     *
+     * TODO - Can this be internal, why is it public? What's the benefit
      */
     function earn() public {
         uint256 _bal = available();
@@ -244,35 +250,36 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
         updateTvlCap(type(uint256).max);
     }
 
-
-    /** 
+    /**
      *
      */
     function harvestTrigger() public view returns (bool) {
         return distributor.isEpochFinished();
     }
 
-
-    /** 
+    /**
      *
      */
     function harvest() public onlyKeeper {
         // Must wait for the epoch to complete before harvesting
-        require (distributor.isEpochFinished(), "Epoch not finished");
+        require(distributor.isEpochFinished(), "Epoch not finished");
 
-        MultiRewards[] memory rewards = IStrategy(strategy).claim(address(distributor));
+        MultiRewards[] memory rewards = IStrategy(strategy).claim(
+            address(distributor)
+        );
 
         // Test the strategy is being honest
-        for (uint i = 0; i < rewards.length; i++) {
-            uint256 rewardBalance = IERC20(rewards[i].token).balanceOf(address(distributor));
-            require (rewardBalance >= rewards[i].amount, "Dishonest Strategy");
+        for (uint256 i = 0; i < rewards.length; i++) {
+            uint256 rewardBalance = IERC20(rewards[i].token).balanceOf(
+                address(distributor)
+            );
+            require(rewardBalance >= rewards[i].amount, "Dishonest Strategy");
         }
         emit RewardsClaimed(address(distributor), rewards);
-        
+
         // send profit to reward distributor
         distributor.processEpoch(rewards);
     }
-
 
     /*
      * @dev functions to increase user's cumulative deposits and withdrawals
@@ -313,7 +320,7 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
         stratCandidate = StratCandidate({
             implementation: _implementation,
             proposedTime: block.timestamp
-         });
+        });
         emit NewStratCandidate(_implementation);
     }
 
@@ -323,12 +330,21 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
      * happening in +100 years for safety.
      */
     function upgradeStrat() external onlyGovernance {
-        require(stratCandidate.implementation != address(0), "There is no candidate");
-        require(stratCandidate.proposedTime.add(approvalDelay) < block.timestamp, "Delay has not passed");
+        require(
+            stratCandidate.implementation != address(0),
+            "There is no candidate"
+        );
+        require(
+            stratCandidate.proposedTime.add(approvalDelay) < block.timestamp,
+            "Delay has not passed"
+        );
 
         emit UpgradeStrat(stratCandidate.implementation);
 
         IStrategy(strategy).retireStrat();
+
+        // TODO - Add loss arg and check there hasn't been more than
+        // "loss" lost when retiring the strat
         strategy = stratCandidate.implementation;
         stratCandidate.implementation = address(0);
         stratCandidate.proposedTime = 5000000000;

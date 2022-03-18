@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.11;
 
-
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -11,26 +10,54 @@ import "./StrategyAuthorized.sol";
 import "./interfaces/uniswap.sol";
 import "./interfaces/IRedirectVault.sol";
 import "./interfaces/IStrategy.sol";
-import { MultiRewards } from "./types/MultiRewards.sol";
-
+import {MultiRewards} from "./types/MultiRewards.sol";
 
 interface IMasterChef {
     function poolLength() external view returns (uint256);
-    function getMultiplier(uint256 _from, uint256 _to) external view returns (uint256);
-    function pendingSpirit(uint256 _pid, address _user) external view returns (uint256);
+
+    function getMultiplier(uint256 _from, uint256 _to)
+        external
+        view
+        returns (uint256);
+
+    function pendingSpirit(uint256 _pid, address _user)
+        external
+        view
+        returns (uint256);
+
     function massUpdatePools() external;
+
     function updatePool(uint256 _pid) external;
+
     function deposit(uint256 _pid, uint256 _amount) external;
+
     function withdraw(uint256 _pid, uint256 _amount) external;
-    function userInfo(uint256 _pid, address _user) external view returns (uint256, uint256);
+
+    function userInfo(uint256 _pid, address _user)
+        external
+        view
+        returns (uint256, uint256);
+
     function emergencyWithdraw(uint256 _pid) external;
 }
 
 interface IMasterChefv2 {
     function harvest(uint256 pid, address to) external;
-    function withdraw(uint256 pid, uint256 amount, address to) external;
-    function deposit(uint256 pid, uint256 amount, address to) external;
+
+    function withdraw(
+        uint256 pid,
+        uint256 amount,
+        address to
+    ) external;
+
+    function deposit(
+        uint256 pid,
+        uint256 amount,
+        address to
+    ) external;
+
     function lqdrPerBlock() external view returns (uint256);
+
     function lpToken(uint256 pid) external view returns (address);
 }
 
@@ -57,15 +84,16 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
      * {lpToken0, lpToken1} - Tokens that the strategy maximizes. IUniswapV2Pair tokens.
      */
     address public wftm = address(0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83);
-    address public rewardToken0 = address(0x10b620b2dbAC4Faa7D7FFD71Da486f5D44cd86f9); //LQDR
-    address public rewardToken1; 
+    address public rewardToken0 =
+        address(0x10b620b2dbAC4Faa7D7FFD71Da486f5D44cd86f9); //LQDR
+    address public rewardToken1;
     uint8 public rewardTokens = 1;
     address public lpPair;
     address public lpToken0;
     address public lpToken1;
 
     mapping(uint8 => bool) public isEmitting;
-    mapping (address => address) tokenRouter;
+    mapping(address => address) tokenRouter;
 
     /**
      * @dev Third Party Contracts:
@@ -73,8 +101,10 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
      * {masterChef} - masterChef contract
      * {poolId} - masterChef pool id
      */
-    address public constant spookyRouter = address(0xF491e7B69E4244ad4002BC14e878a34207E38c29);
-    address public constant spiritRouter = address(0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52);
+    address public constant spookyRouter =
+        address(0xF491e7B69E4244ad4002BC14e878a34207E38c29);
+    address public constant spiritRouter =
+        address(0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52);
     address public masterChef = 0x6e2ad6527901c9664f016466b8DA1357a004db0f;
     uint8 public poolId;
 
@@ -84,7 +114,7 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
      */
     address public vault;
 
-     /**
+    /**
      * @dev Distribution of fees earned. This allocations relative to the % implemented on
      * Current implementation separates 5% for fees. Can be changed through the constructor
      * Inputs in constructor should be ratios between the Fee and Max Fee, divisble into percents by 10000
@@ -105,7 +135,7 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
     // uint public securityFee = 10;
     // uint public totalFee = 450;
     // uint constant public MAX_FEE = 500;
-    uint constant  public PERCENT_DIVISOR = 10000;
+    uint256 public constant PERCENT_DIVISOR = 10000;
 
     /**
      * @dev Routes we take to swap tokens using PanrewardTokenSwap.
@@ -123,20 +153,23 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
      * {TotalFeeUpdated} Event that is fired each time the total fee is updated.
      * {CallFeeUpdated} Event that is fired each time the call fee is updated.
      */
-    event TotalFeeUpdated(uint newFee);
-    event CallFeeUpdated(uint newCallFee, uint newTreasuryFee);
+    event TotalFeeUpdated(uint256 newFee);
+    event CallFeeUpdated(uint256 newCallFee, uint256 newTreasuryFee);
 
     /**
      * @dev Initializes the strategy. Sets parameters, saves routes, and gives allowances.
      * @notice see documentation for each variable above its respective declaration.
      */
-    constructor (
-      address _vault,
-      address _lpPair,
-      uint8 _poolId
+    constructor(
+        address _vault,
+        address _lpPair,
+        uint8 _poolId
     ) {
         // Check the _poolId matches the _lpPair
-        require (IMasterChefv2(masterChef).lpToken(_poolId) == _lpPair, "PID LP Token missmatch");
+        require(
+            IMasterChefv2(masterChef).lpToken(_poolId) == _lpPair,
+            "PID LP Token missmatch"
+        );
 
         lpPair = _lpPair;
         poolId = _poolId;
@@ -145,19 +178,17 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
         lpToken0 = IUniswapV2Pair(lpPair).token0();
         lpToken1 = IUniswapV2Pair(lpPair).token1();
 
-        if(lpToken0 != wftm){
+        if (lpToken0 != wftm) {
             wftmToLp0Route = [wftm, lpToken0];
         }
 
-        if(lpToken1 != wftm){
+        if (lpToken1 != wftm) {
             wftmToLp1Route = [wftm, lpToken1];
         }
 
-        
         tokenRouter[lpToken0] = spookyRouter;
         tokenRouter[lpToken1] = spookyRouter;
-        tokenRouter[rewardToken0] = spiritRouter; 
-               
+        tokenRouter[rewardToken0] = spiritRouter;
 
         isEmitting[0] = true;
         isEmitting[1] = false;
@@ -169,7 +200,6 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
         require(vault == _msgSender(), "!vault");
         _;
     }
-
 
     function governance() public view override returns (address) {
         return IRedirectVault(vault).governance();
@@ -197,7 +227,11 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
         uint256 pairBal = IERC20(lpPair).balanceOf(address(this));
 
         if (pairBal < _amount) {
-            IMasterChefv2(masterChef).withdraw(poolId, _amount.sub(pairBal), address(this));
+            IMasterChefv2(masterChef).withdraw(
+                poolId,
+                _amount.sub(pairBal),
+                address(this)
+            );
             pairBal = IERC20(lpPair).balanceOf(address(this));
         }
 
@@ -207,7 +241,6 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
         IERC20(lpPair).safeTransfer(vault, pairBal);
     }
 
-
     /**
      * @dev Core function of the strat, in charge of collecting and re-investing rewards.
      * 1. It claims rewards from the masterChef.
@@ -216,7 +249,12 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
      * 4. Adds more liquidity to the pool.
      * 5. It deposits the new LP tokens.
      */
-    function claim(address to) external onlyVault whenNotPaused returns (MultiRewards[] memory _rewards) {
+    function claim(address to)
+        external
+        onlyVault
+        whenNotPaused
+        returns (MultiRewards[] memory _rewards)
+    {
         // require(!Address.isContract(msg.sender), "!contract");
         IMasterChefv2(masterChef).harvest(poolId, address(this));
 
@@ -228,7 +266,7 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
         _rewards[0] = MultiRewards(rewardToken0, balanceReward0);
 
         // TODO - Support multiple reward tokens
-     }
+    }
 
     /**
      * @dev Function to calculate the total underlaying {lpPair} held by the strat.
@@ -249,7 +287,10 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
      * @dev It calculates how much {lpPair} the strategy has allocated in the masterChef
      */
     function balanceOfPool() public view returns (uint256) {
-        (uint256 _amount,) = IMasterChef(masterChef).userInfo(poolId, address(this));
+        (uint256 _amount, ) = IMasterChef(masterChef).userInfo(
+            poolId,
+            address(this)
+        );
         return _amount;
     }
 
@@ -257,9 +298,7 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
      * @dev Function that has to be called as part of strat migration. It sends all the available funds back to the
      * vault, ready to be migrated to the new strat.
      */
-    function retireStrat() external {
-        require(msg.sender == vault, "!vault");
-
+    function retireStrat() external onlyVault {
         IMasterChef(masterChef).emergencyWithdraw(poolId);
 
         uint256 pairBal = IERC20(lpPair).balanceOf(address(this));
@@ -278,8 +317,8 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
      * @dev Pauses the strat.
      */
     function pause() public onlyAuthorized {
-      _pause();
-      removeAllowances();
+        _pause();
+        removeAllowances();
     }
 
     /**
@@ -313,18 +352,29 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
         IERC20(lpToken1).safeApprove(spookyRouter, 0);
     }
 
-    function emittance(uint8 _id, bool _status) external onlyAuthorized returns (bool){
+    function emittance(uint8 _id, bool _status)
+        external
+        onlyAuthorized
+        returns (bool)
+    {
         isEmitting[_id] = _status;
         return true;
     }
 
-    function addRewardToken(address _token, address _router) external onlyAuthorized returns (bool){
-            rewardToken1 = _token;
-            tokenRouter[rewardToken1] = _router;
-            IERC20(rewardToken1).safeApprove(tokenRouter[rewardToken1], type(uint256).max);
-            rewardToken1ToWftmRoute = [rewardToken1, wftm];
-            isEmitting[1] = true;
-            rewardTokens = 2;
-            return true;  
+    function addRewardToken(address _token, address _router)
+        external
+        onlyAuthorized
+        returns (bool)
+    {
+        rewardToken1 = _token;
+        tokenRouter[rewardToken1] = _router;
+        IERC20(rewardToken1).safeApprove(
+            tokenRouter[rewardToken1],
+            type(uint256).max
+        );
+        rewardToken1ToWftmRoute = [rewardToken1, wftm];
+        isEmitting[1] = true;
+        rewardTokens = 2;
+        return true;
     }
 }
