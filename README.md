@@ -1,8 +1,12 @@
 # YieldRedirect
 
+
+
 ![Yield Redirect Diagram](https://github.com/RoboVault/YieldRedirect/blob/smooth_refactor/YieldRedirect.png)
 
-YieldRedirect is a new kind of vault. Rather than farming rewards being auto-compound back into the vault, the rewards are swapped into the vaults target token. For example, users can farm LQDR on OATH-FTM and all LQDR rewards could be swapped into USDC. The target farm and target token are configurable in the contracts constructor. 
+## Yield Redirect is a new kind of vault
+
+Rather than farming rewards being auto-compounded back into the vault, the rewards are swapped into the vaults target token. For example, users can farm LQDR on OATH-FTM and all LQDR rewards could be swapped into USDC. The target farm and target token are configurable in the contracts constructor. 
 The vault supports LP farming and single-asset farming.
 in essence, users can DCA the target token while LP farming. 
 
