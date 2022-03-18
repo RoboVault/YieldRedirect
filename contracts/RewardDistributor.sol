@@ -50,7 +50,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     address public weth = 0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83;
 
     // tracks total balance of base that is eligible for rewards in given epoch (as new deposits won't receive rewards until next epoch)
-    uint256 eligibleEpochRewards;
+    uint256 public eligibleEpochRewards;
     uint256 public epoch = 0;
     uint256 public lastEpoch;
     uint256 constant BPS_ADJ = 10000;
@@ -265,11 +265,11 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         if (rewards > 0) {
             // claims all rewards
             _disburseRewards(_user, rewards);
-
-            // to make accounting work in tracking rewards for target asset this user isn't eligible for next epoch
-            _updateEligibleEpochRewards(_beforeBalance);
         }
 
+        if (userInfo[_user].epochStart < epoch) {
+            _updateEligibleEpochRewards(_beforeBalance);
+        }
         // to prevent users leaching i.e. deposit just before epoch rewards distributed user will start to be eligible for rewards following epoch
         _updateUserInfo(_user, epoch + 1);
     }
@@ -282,10 +282,12 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
             _disburseRewards(_user, rewards);
         }
 
-        _updateUserInfo(_user, epoch);
         if (userInfo[_user].epochStart < epoch) {
             _updateEligibleEpochRewards(_amount);
         }
+        
+        _updateUserInfo(_user, epoch);
+
     }
 
     function harvest() public nonReentrant {

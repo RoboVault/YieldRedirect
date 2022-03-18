@@ -166,6 +166,7 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
         require(_amount != 0, "please provide amount");
         uint256 _pool = balance();
         require(_pool.add(_amount) <= tvlCap, "vault is full!");
+        uint256 _sharesBefore = balanceOf(msg.sender);
 
         uint256 _before = token.balanceOf(address(this));
         token.safeTransferFrom(msg.sender, address(this), _amount);
@@ -178,7 +179,7 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
             shares = (_amount.mul(totalSupply())).div(_pool);
         }
         _mint(msg.sender, shares);
-        distributor.onDeposit(msg.sender, _before);
+        distributor.onDeposit(msg.sender, _sharesBefore);
         earn();
         incrementDeposits(_amount);
     }
