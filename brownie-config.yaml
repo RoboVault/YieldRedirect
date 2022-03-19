@@ -4,7 +4,7 @@ networks:
   default: ftm-main-fork
 
 # automatically fetch contract sources from Etherscan
-autofetch_sources: False
+autofetch_sources: true
 
 # require OpenZepplin Contracts
 dependencies:
