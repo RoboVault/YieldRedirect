@@ -4,8 +4,8 @@ import pytest
 from brownie import interface
 from brownie import reverts
 
-
-def test_vault_container(accounts, yieldRedirect, chain, wftm):
+# TODO - update this tests
+def test_vault_container(accounts, vault, chain, wftm):
     usdc = interface.ERC20('0x04068DA6C83AFCFA0e13ba15A6696662335D5B75')
 
     yvFTM = interface.ERC20('0x0DEC85e74A92c52b7F708c4B10207D9560CEFaf0')
@@ -19,7 +19,7 @@ def test_vault_container(accounts, yieldRedirect, chain, wftm):
     user = accounts[2] #this would be user that wants to redirect yield from YVDAI to buying OHM
 
     router = '0xF491e7B69E4244ad4002BC14e878a34207E38c29'
-    container = yieldRedirect.deploy(wftm, yvUSDC, usdc, yvFTM, router , wftm ,{"from": owner})
+    container = vault.deploy(wftm, yvUSDC, usdc, yvFTM, router , wftm ,{"from": owner})
 
 
     depositAmt = 10000*(10**18)
