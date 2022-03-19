@@ -189,7 +189,7 @@ def test_authorization(chain, strategy, distributor, gov, token, vault, user1, u
     with reverts() : 
         distributor.setParamaters(5000, 200, 0, {"from": user1})
 
-    highProfitFee = 2000
+    highProfitFee = 2001
     # should fail if gov tries to set profit fee too high
     with reverts() : 
         distributor.setParamaters(5000, highProfitFee, 0, {"from": gov})
