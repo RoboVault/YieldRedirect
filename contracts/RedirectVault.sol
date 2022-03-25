@@ -4,6 +4,7 @@ pragma solidity 0.8.11;
 
 import "./interfaces/IStrategy.sol";
 import "./types/MultiRewards.sol";
+import "./ERC20NoTransfer.sol";
 import "./Authorized.sol";
 import {IRewardDistributor, RewardDistributor} from "./RewardDistributor.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -18,7 +19,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
  * This is the contract that receives funds and that users interface with.
  * The yield optimizing strategy itself is implemented in a separate 'Strategy.sol' contract.
  */
-contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
+contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
@@ -80,7 +81,7 @@ contract RedirectVault is ERC20, Authorized, ReentrancyGuard {
         address _targetVault,
         address _feeAddress,
         uint256 _approvalDelay
-    ) ERC20(string(_name), string(_symbol)) {
+    ) ERC20NoTransfer(string(_name), string(_symbol)) {
         token = IERC20(_token);
         tvlCap = _tvlCap;
         approvalDelay = _approvalDelay;

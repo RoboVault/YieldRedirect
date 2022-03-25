@@ -285,9 +285,8 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         if (userInfo[_user].epochStart < epoch) {
             _updateEligibleEpochRewards(_amount);
         }
-        
-        _updateUserInfo(_user, epoch);
 
+        _updateUserInfo(_user, epoch);
     }
 
     function harvest() public nonReentrant {
