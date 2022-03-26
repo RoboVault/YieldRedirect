@@ -14,6 +14,9 @@ spookyRouter =  '0xF491e7B69E4244ad4002BC14e878a34207E38c29'
 spookyMasterChef = '0x2b2929E785374c651a81A63878Ab22742656DcDd'
 lqdrMasterChef = '0x6e2ad6527901c9664f016466b8DA1357a004db0f'
 
+oxd = '0xc5A9848b9d145965d821AaeC8fA32aaEE026492d'
+solid = '0x888EF71766ca594DED1F0FA3AE64eD2941740A20'
+
 _usdc = '0x04068DA6C83AFCFA0e13ba15A6696662335D5B75'
 yvUSDC = '0xEF0210eB96c7EB36AF8ed1c20306462764935607'
 zeroAddress = '0x0000000000000000000000000000000000000000'
@@ -32,6 +35,17 @@ CONFIG = {
         'whale' : '0x2b2929E785374c651a81A63878Ab22742656DcDd'
     },
 
+    '0XMIMUSDCyvUSD': {
+        'token': '0xbcab7d083Cf6a01e0DdA9ed7F8a02b47d125e682',
+        'targetToken' : _usdc,
+        'targetVault' : yvUSDC,
+        'farmAddress': '0XDAO',
+        'farmToken' : oxd,
+        'router' : spookyRouter,
+        'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
+        'pid' : 11,
+        'whale' : '0xC009BC33201A85800b3593A40a178521a8e60a02'
+    },
 
     # 'LQDRFTMyvUSDC': {
     #     'token': '0xe7E90f5a767406efF87Fdad7EB07ef407922EC1D',
@@ -51,15 +65,15 @@ CONFIG = {
 
 @pytest.fixture
 def conf():
-    yield CONFIG['USDCFTMyvUSDC']
+    yield CONFIG['0XMIMUSDCyvUSD']
 
 @pytest.fixture
 def usdc():
-    yield Contract('0x04068DA6C83AFCFA0e13ba15A6696662335D5B75')
+    yield interface.IERC20Extended('0x04068DA6C83AFCFA0e13ba15A6696662335D5B75')
 
 @pytest.fixture
 def reward_token(conf):
-    yield Contract(conf['farmToken'])
+    yield interface.IERC20(conf['farmToken'])
 
 @pytest.fixture
 def router(conf):
@@ -113,6 +127,10 @@ def keeper(accounts):
 def token(conf):
     # token_address = "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75"  # USDC
     # token_address = "0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83"  # this should be the address of the ERC-20 used by the strategy/vault (DAI)
+    if conf['farmAddress'] == '0XDAO' :
+        token = interface.IBaseV1Pair(conf['token'])
+    else : 
+        token = interface.IUniswapV2Pair(conf['token'])
     yield interface.IUniswapV2Pair(conf['token'])
 
 
@@ -131,6 +149,7 @@ def get_path(weth):
         return path
     yield get_path
 
+"""
 @pytest.fixture
 def token_price(router, usdc, get_path):
     def token_price(token, decimals):
@@ -163,10 +182,11 @@ def lp_price(token, token_price):
                    (reserves[1] / (10 ** token1.decimals()) * price1))
     price = totalAssets / totalSupply 
     yield price
+"""
 
 @pytest.fixture
-def amount(accounts, token, lp_price, user1, user2, conf):
-    amount = int((1000000 / lp_price) * (10 ** token.decimals()))
+def amount(accounts, token, user1, user2, conf):
+    amount = token.balanceOf(conf['whale']) * 0.05
     # In order to get some funds for the token you are about to use,
     # it impersonate an exchange address to use it's funds.
     # reserve = accounts.at("0x39B3bd37208CBaDE74D0fcBDBb12D606295b430a", force=True) # WFTM
@@ -191,13 +211,13 @@ def weth_amout(user, weth):
 
 
 @pytest.fixture
-def vault(RedirectVault, strategist, keeper, gov, conf):
-    # tvlCap = 
+def vault(RedirectVault, strategist, keeper, gov, conf, amount):
+    tvlCap = amount * 2
     vault = RedirectVault.deploy(
         conf['token'], 
         "Yield Redirect Test",
         "yrSYMBOL",
-        10 ** 18,
+        tvlCap,
         conf['router'],
         conf['targetToken'],
         conf['targetVault'],
@@ -215,9 +235,15 @@ def distributor(RewardDistributor, vault):
 
 
 @pytest.fixture
-def strategy(strategist, keeper, vault, distributor, StrategyLiquidDriver, gov, token, pid, reward_token):
-    strategy = StrategyLiquidDriver.deploy(vault, token.address, pid, {"from": gov})
-    distributor.permitRewardToken(reward_token, {'from': gov})
+def strategy(strategist, keeper, vault, distributor, StrategyLiquidDriver, Strategy0xDAO ,gov, token, pid, reward_token, conf):
+    if conf['farmAddress'] == '0XDAO' :
+        strategy = Strategy0xDAO.deploy(vault, token.address, {"from": gov})
+        distributor.permitRewardToken(reward_token, {'from': gov})
+    else : 
+        strategy = StrategyLiquidDriver.deploy(vault, token.address, pid, {"from": gov})
+        distributor.permitRewardToken(oxd, {'from': gov})
+        distributor.permitRewardToken(solid, {'from': gov})
+
     vault.initialize(strategy, {"from": gov})
     yield strategy
 

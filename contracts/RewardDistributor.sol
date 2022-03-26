@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "./interfaces/ISolidlyRouter01.sol";
 import "./interfaces/uniswap.sol";
 import "./interfaces/IRedirectVault.sol";
 import {IVault} from "./interfaces/IVault.sol";
@@ -47,7 +48,9 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     IVault public targetVault;
     address public redirectVault;
     address public router;
+    ISolidlyRouter01 public constant solidlyRouter = ISolidlyRouter01(0xa38cd27185a464914D3046f0AB9d43356B34829D);
     address public weth = 0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83;
+    address public oxd = 0xc5A9848b9d145965d821AaeC8fA32aaEE026492d;
 
     // tracks total balance of base that is eligible for rewards in given epoch (as new deposits won't receive rewards until next epoch)
     uint256 public eligibleEpochRewards;
@@ -88,6 +91,10 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         );
 
         useTargetVault = false;
+
+        IERC20(oxd).approve(address(solidlyRouter), type(uint256).max);
+        IERC20(weth).approve(address(router), type(uint256).max);
+
         // if (_targetVault == address(0)) {
         //     useTargetVault = false;
         // } else {
@@ -224,16 +231,42 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
 
     function _redirectProfits(MultiRewards[] calldata _rewards) internal {
         for (uint256 i = 0; i < _rewards.length; i++) {
-            _swapTokenToTarget(_rewards[i].token);
+            _swapTokenToTargetUniV2(_rewards[i].token);
         }
     }
 
     function manualRedirect(address token) external onlyAuthorized {
         require(token != address(targetToken));
-        _swapTokenToTarget(token);
+        _sellRewards(token);
     }
 
-    function _swapTokenToTarget(address token) internal {
+    function _sellRewards(address token) internal {
+        if (token == oxd) {
+            _convert0xd();
+        } else {
+            _swapTokenToTargetUniV2(token);
+        }
+    }
+
+    function _convert0xd() internal {
+        uint256 swapAmount = IERC20(oxd).balanceOf(address(this));
+        solidlyRouter.swapExactTokensForTokensSimple(
+            swapAmount,
+            uint(0),
+            oxd,
+            weth,
+            true,
+            address(this),
+            block.timestamp
+        );
+
+        if (address(targetToken) != weth) {
+            _swapTokenToTargetUniV2(weth);
+        }
+
+    }
+
+    function _swapTokenToTargetUniV2(address token) internal {
         IERC20 rewardToken = IERC20(token);
         uint256 swapAmt = rewardToken
             .balanceOf(address(this))
