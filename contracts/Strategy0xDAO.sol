@@ -307,6 +307,7 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
 
     function giveAllowances() internal {
         IERC20(lpPair).safeApprove(address(oxPoolAddress), type(uint256).max);
+        IERC20(oxPoolAddress).safeApprove(address(stakingAddress), type(uint256).max);
         IERC20(rewardToken0).safeApprove(solidlyRouter, type(uint256).max);
         IERC20(wftm).safeApprove(spookyRouter, type(uint256).max);
 
@@ -319,6 +320,8 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
 
     function removeAllowances() internal {
         IERC20(lpPair).safeApprove(address(oxPoolAddress), 0);
+        IERC20(oxPoolAddress).safeApprove(address(stakingAddress), 0);
+
         IERC20(rewardToken0).safeApprove(solidlyRouter, 0);
         IERC20(wftm).safeApprove(spookyRouter, 0);
         IERC20(lpToken0).safeApprove(spookyRouter, 0);

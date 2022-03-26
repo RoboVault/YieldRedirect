@@ -238,11 +238,13 @@ def distributor(RewardDistributor, vault):
 def strategy(strategist, keeper, vault, distributor, StrategyLiquidDriver, Strategy0xDAO ,gov, token, pid, reward_token, conf):
     if conf['farmAddress'] == '0XDAO' :
         strategy = Strategy0xDAO.deploy(vault, token.address, {"from": gov})
-        distributor.permitRewardToken(reward_token, {'from': gov})
-    else : 
-        strategy = StrategyLiquidDriver.deploy(vault, token.address, pid, {"from": gov})
         distributor.permitRewardToken(oxd, {'from': gov})
         distributor.permitRewardToken(solid, {'from': gov})
+    else : 
+        strategy = StrategyLiquidDriver.deploy(vault, token.address, pid, {"from": gov})
+
+        distributor.permitRewardToken(reward_token, {'from': gov})
+
 
     vault.initialize(strategy, {"from": gov})
     yield strategy
