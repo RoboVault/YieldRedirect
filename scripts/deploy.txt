@@ -1,0 +1,90 @@
+brownie console --network ftm-main
+
+accounts.load("dev")
+
+oxmimusdc = '0xbcab7d083Cf6a01e0DdA9ed7F8a02b47d125e682'
+lqdr = '0x10b620b2dbAC4Faa7D7FFD71Da486f5D44cd86f9'
+spookyRouter =  '0xF491e7B69E4244ad4002BC14e878a34207E38c29'
+spookyMasterChef = '0x2b2929E785374c651a81A63878Ab22742656DcDd'
+lqdrMasterChef = '0x6e2ad6527901c9664f016466b8DA1357a004db0f'
+
+oxd = '0xc5A9848b9d145965d821AaeC8fA32aaEE026492d'
+solid = '0x888EF71766ca594DED1F0FA3AE64eD2941740A20'
+
+usdc = '0x04068DA6C83AFCFA0e13ba15A6696662335D5B75'
+yvUSDC = '0xEF0210eB96c7EB36AF8ed1c20306462764935607'
+
+
+LQDRFTM = '0x4Fe6f19031239F105F753D1DF8A0d24857D0cAA2'
+pid = 0 
+
+gov = '0x7601630eC802952ba1ED2B6e4db16F699A0a5A87'
+gelatoJobs = '0x6EDe1597c05A0ca77031cBA43Ab887ccf24cd7e8'
+
+devAddress = accounts[-1]
+
+tvlCap = 2**256 - 1 
+
+vaultLQDR = RedirectVault.deploy(
+        LQDRFTM, 
+        "Yield Redirect LQDRFTM",
+        "yrSYMBOL",
+        tvlCap,
+        spookyRouter,
+        usdc,
+        yvUSDC,
+        devAddress,
+        0,
+        {'from': devAddress}
+    )
+
+
+strategy = StrategyLiquidDriver.deploy(vaultLQDR, LQDRFTM, pid, {"from": devAddress})
+
+
+RewardDistributorLQDR = RewardDistributor.at(vaultLQDR.distributor())
+RewardDistributorLQDR.permitRewardToken(lqdr, {'from': devAddress})
+
+
+vault0XDA0 = RedirectVault.deploy(
+        oxmimusdc, 
+        "Yield Redirect MIMUSDC",
+        "yrSYMBOL",
+        tvlCap,
+        spookyRouter,
+        usdc,
+        yvUSDC,
+        devAddress,
+        0,
+        {'from': devAddress}
+    )
+
+
+strategy = Strategy0xDAO.deploy(vault0XDA0, oxmimusdc, {"from": devAddress})
+
+
+
+RewardDistributor0XD = RewardDistributor.at(vaultLQDR.distributor())
+RewardDistributor0XD.permitRewardToken(oxd, {'from': devAddress})
+RewardDistributor0XD.permitRewardToken(solid, {'from': devAddress})
+
+
+f = open("flatVault.sol", "w")
+RedirectVault.get_verification_info()
+f.write(RedirectVault._flattener.flattened_source)
+f.close()
+
+f = open("flatRewardDistributor.sol", "w")
+RewardDistributor.get_verification_info()
+f.write(RewardDistributor._flattener.flattened_source)
+f.close()
+
+f = open("flatStrategy0xDAO.sol", "w")
+Strategy0xDAO.get_verification_info()
+f.write(Strategy0xDAO._flattener.flattened_source)
+f.close()
+
+f = open("flatStrategyLiquidDriver.sol", "w")
+StrategyLiquidDriver.get_verification_info()
+f.write(StrategyLiquidDriver._flattener.flattened_source)
+f.close()
