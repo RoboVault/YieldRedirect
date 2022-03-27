@@ -95,13 +95,13 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         IERC20(oxd).approve(address(solidlyRouter), type(uint256).max);
         IERC20(weth).approve(address(router), type(uint256).max);
 
-        // if (_targetVault == address(0)) {
-        //     useTargetVault = false;
-        // } else {
-        //     useTargetVault = true;
-        //     // Approve allowance for the vault
-        //     targetToken.safeApprove(_targetVault, type(uint256).max);
-        // }
+        if (_targetVault == address(0)) {
+            useTargetVault = false;
+        } else {
+            useTargetVault = true;
+            // Approve allowance for the vault
+            targetToken.safeApprove(_targetVault, type(uint256).max);
+        }
     }
 
     /*///////////////////////////////////////////////////////////////
