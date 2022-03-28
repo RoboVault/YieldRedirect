@@ -249,9 +249,7 @@ contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
         incrementWithdrawals(r);
     }
 
-    /**
-     * @dev pass in max value of uint to effectively remove TVL cap
-     */
+    /// @notice pass in max value of uint to effectively remove TVL cap
     function updateTvlCap(uint256 _newTvlCap) public onlyAuthorized {
         tvlCap = _newTvlCap;
         emit TvlCapUpdated(tvlCap);

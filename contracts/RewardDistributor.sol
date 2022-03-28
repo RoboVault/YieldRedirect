@@ -579,9 +579,14 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         IERC20(_token).safeApprove(router, 0);
     }
 
+    /// @notice emergancy function to recover funds from the contract. Worst-case scenario.
+    /// **** RUG RISK ****
+    /// governance must be a trusted party!!!
+    /// @dev todo - remove this function in future releases once there is more confidence in RewardDistributor
+    /// @param _token token to be revoked
     function emergencySweep(address _token, address _to)
         external
-        onlyAuthorized
+        onlyGovernance
     {
         uint256 balance = IERC20(_token).balanceOf(address(this));
         IERC20(_token).transfer(_to, balance);
