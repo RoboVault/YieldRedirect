@@ -36,6 +36,13 @@ interface IRewardDistributor {
     function unpermitRewardToken(address _token) external;
 }
 
+/// @title Manages reward distribution for a RedirectVault
+/// @author Robovault
+/// @notice You can use this contract to tract and distribut rewards
+/// for RedirectVault users
+/// @dev Design to isolate the reward distribution from the vault and
+/// strategy so as to minimise impact if there are issues with the
+/// RewardDistributor
 contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -44,36 +51,92 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     /*///////////////////////////////////////////////////////////////
                                 IMMUTABLES
     //////////////////////////////////////////////////////////////*/
-    IERC20 public targetToken;
-    IERC20 public tokenOut;
-    IVault public targetVault;
-    address public redirectVault;
-    address public router;
-    ISolidlyRouter01 public constant solidlyRouter = ISolidlyRouter01(0xa38cd27185a464914D3046f0AB9d43356B34829D);
-    address public weth = 0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83;
-    address public oxd = 0xc5A9848b9d145965d821AaeC8fA32aaEE026492d;
+    /// @notice Underlying target token, eg USDC. This is what the rewards will be converted to,
+    /// afterwhich the rewards may be deposited to a vault if one is configured
+    IERC20 public constant targetToken;
 
-    // tracks total balance of base that is eligible for rewards in given epoch (as new deposits won't receive rewards until next epoch)
+    /// @notice the target vault for pending rewards to be deposited into.
+    IVault public constant targetVault;
+
+    /// @notice if a vault is configured this is set to targetVault, otherwise this will be targetToken. This
+    /// is the token users will withdraw when harvesting. If there is an issue with the vault, authorized roles
+    /// can call emergencyDisableVault() which will change tokenOut to targetToken.
+    IERC20 public constant tokenOut;
+
+    /// @notice contract address for the parent redurect vault.
+    address public constant redirectVault;
+
+    /// @notice univ2 router used for swaps
+    address public constant router;
+
+    /// @notice solidly router used for swapping only OXD when it is a reward token
+    ISolidlyRouter01 public constant solidlyRouter =
+        ISolidlyRouter01(0xa38cd27185a464914D3046f0AB9d43356B34829D);
+
+    /// @notice weth (wftm address) for determining univ2 swap paths
+    address public constant weth = 0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83;
+
+    /// @notice oxd v2 contract address
+    address public constant oxd = 0xc5A9848b9d145965d821AaeC8fA32aaEE026492d;
+
+    /*///////////////////////////////////////////////////////////////
+                                STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice tracks total balance of base that is eligible for rewards in given epoch.
+    /// New deposits won't receive rewards until next epoch.
     uint256 public eligibleEpochRewards;
-    uint256 public epoch = 0;
-    uint256 public lastEpoch;
-    uint256 constant BPS_ADJ = 10000;
-    uint256 public timeForKeeperToConvert = 3600;
 
+    /// @notice Tracks the epoch number. This is incremented each time processEpoch is called
+    uint256 public epoch = 0;
+
+    /// @notice timestamp of the previous epoch
+    uint256 public lastEpoch;
+
+    /// @notice BIPS Scalar
+    uint256 constant BPS_ADJ = 10000;
+
+    /// @notice mapping user info to user addresses
     mapping(address => UserInfo) public userInfo;
-    // tracks rewards of traget token for given Epoch
+
+    /// @notice tracks rewards of traget token for given Epoch
     mapping(uint256 => uint256) public epochRewards;
-    /// tracks the total balance eligible for rewards for given epoch
+
+    /// @notice tracks the total balance eligible for rewards for given epoch
     mapping(uint256 => uint256) public epochBalance;
-    /// tracks total tokens claimed by user
+
+    /// @notice tracks total tokens claimed by user
     mapping(address => uint256) public totalClaimed;
 
-    event UserHarvested(address user, uint256 rewards);
+    /*///////////////////////////////////////////////////////////////
+                                EVENTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice User Harvrest Event
+    event UserHarvested(
+        address indexed user,
+        uint256 indexed rewards,
+        address indexed token
+    );
+
+    /// @notice Epoch Processed Event
+    event EpochProcessed(
+        uint256 indexed epoch,
+        uint256 indexed amountOut,
+        uint256 indexed eligibleEpochRewards
+    );
 
     /*///////////////////////////////////////////////////////////////
                                 CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice The Reward Distributor constructor initialises the immutables
+    /// and validates the configuration of the contract.
+    /// @param _redirectVault RedirectVault contract
+    /// @param _router univ2 router (Spooky or Spirit)
+    /// @param _targetToken Target token - eg USDC
+    /// @param _targetVault Target vault - wg yvUSDC. Set this to the zero address if no vault is needed
+    /// @param _feeAddress Address for which the fees are sent
     constructor(
         address _redirectVault,
         address _router,
@@ -90,8 +153,6 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
             _targetToken == IVault(targetVault).token(),
             "Vault.token() miss-match"
         );
-
-        useTargetVault = false;
 
         IERC20(oxd).approve(address(solidlyRouter), type(uint256).max);
         IERC20(weth).approve(address(router), type(uint256).max);
@@ -111,25 +172,46 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
                         USE TARGET VAULT CONFIGURATION
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Set to true to enable deposits into the target vault
+    /// @notice flags if a vault is configured and that it's not in
+    /// emergency exit.
     bool public useTargetVault = true;
-    bool public emergencyExitVault = false; 
+
+    /// @notice flags a vault is in emergency exit and will no longer be used.
+    bool public emergencyExitVault = false;
+
+    /// @notice state and accounting values to track rewards before and after
+    /// an emergency exit
     uint256 public emergencyExitEpoch;
     uint256 public emergencyTargetOut;
     uint256 public emergencyVaultBalance;
 
+    /// @notice if there is an issue with the vault deposits, authorized users
+    /// can call this function to perminantly remove the user of the vault. After
+    /// this function is called, all rewards will be swapped into targetToken
+    /// and remain there until harvested.
     function emergencyDisableVault() external onlyAuthorized {
         require(useTargetVault);
+
+        // Disable use of the vault
         useTargetVault = false;
         emergencyExitVault = true;
+
+        // Flag the epoch and current vault balance so rewards for epochs
+        // prior to the emergency exit are calculated properly
         emergencyExitEpoch = epoch;
-        tokenOut = targetToken;
         emergencyVaultBalance = targetVault.balanceOf(address(this));
+
+        // Update token out to the underlying.
+        tokenOut = targetToken;
+
+        // Withdraw from the vault and capture the withdraw amount
         uint256 targetBalanceBefore = targetToken.balanceOf(address(this));
         targetVault.withdraw();
         uint256 targetBalanceAfter = targetToken.balanceOf(address(this));
         emergencyTargetOut = targetBalanceAfter.sub(targetBalanceBefore);
 
+        // Revoke vault approvals
+        targetToken.safeApprove(_targetVault, 0);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -213,6 +295,8 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     /// @notice Only called by the vault. The vault sends harvest rewards to the
     /// reward distributor, and processEpoch() redirects the rewards to the targetToken
     /// @dev epoch is processed by processEpoch()
+    /// @param _rewards and array of the rewards that have been sent to this contract
+    /// that need to be converted to tokenOut
     function processEpoch(MultiRewards[] calldata _rewards) external onlyVault {
         uint256 preSwapBalance = targetBalance();
 
@@ -225,49 +309,43 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         _incrementEpoch();
     }
 
+    /// @notice returns the targetOut balance
+    /// @return targetOut balance of this contract
     function targetBalance() public view returns (uint256) {
         return tokenOut.balanceOf(address(this));
     }
 
-    function targetVaultBalance() public view returns (uint256) {
-        if (address(targetVault) == address(0)) {
-            return 0;
-        }
-        return
-            targetVault
-                .balanceOf(address(this))
-                .mul(targetVault.pricePerShare())
-                .div(10**targetVault.decimals());
-    }
-
-    function totalTargetBalance() public view returns (uint256) {
-        return targetBalance().add(targetVaultBalance());
-    }
-
+    /// @notice swaps the rewards tokens to the targetToken
+    /// @param _rewards and array of the rewards
     function _redirectProfits(MultiRewards[] calldata _rewards) internal {
         for (uint256 i = 0; i < _rewards.length; i++) {
-            _swapTokenToTargetUniV2(_rewards[i].token);
+            _sellRewards(_rewards[i].token);
         }
     }
 
-    function manualRedirect(address token) external onlyAuthorized {
-        require(token != address(targetToken));
+    /// @notice Manual call to sell rewards incase there are some that aren't captured
+    /// @param _token token to sell
+    function manualRedirect(address _token) external onlyAuthorized {
+        require(_token != address(targetToken));
         _sellRewards(token);
     }
 
-    function _sellRewards(address token) internal {
-        if (token == oxd) {
+    /// @notice swaps rewards depending on whether the token is oxd or not.
+    /// @param _token token to swaps
+    function _sellRewards(address _token) internal {
+        if (_token == oxd) {
             _convert0xd();
         } else {
-            _swapTokenToTargetUniV2(token);
+            _swapTokenToTargetUniV2(_token);
         }
     }
 
+    /// @notice swaps any oxd in this contract into the targetToken
     function _convert0xd() internal {
         uint256 swapAmount = IERC20(oxd).balanceOf(address(this));
         solidlyRouter.swapExactTokensForTokensSimple(
             swapAmount,
-            uint(0),
+            uint256(0),
             oxd,
             weth,
             true,
@@ -278,11 +356,12 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         if (address(targetToken) != weth) {
             _swapTokenToTargetUniV2(weth);
         }
-
     }
 
-    function _swapTokenToTargetUniV2(address token) internal {
-        IERC20 rewardToken = IERC20(token);
+    /// @notice swaps any _token in this contract into the targetToken
+    /// @param _token ERC20 token to be swapped into targetToken
+    function _swapTokenToTargetUniV2(address _token) internal {
+        IERC20 rewardToken = IERC20(_token);
         uint256 swapAmt = rewardToken
             .balanceOf(address(this))
             .mul(profitConversionPercent)
@@ -293,17 +372,16 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
             IUniswapV2Router01(router).swapExactTokensForTokens(
                 swapAmt.sub(fee),
                 0,
-                _getTokenOutPath(
-                    address(rewardToken),
-                    address(targetToken),
-                    weth
-                ),
+                _getTokenOutPath(_token, address(targetToken), weth),
                 address(this),
                 block.timestamp
             );
         }
     }
 
+    /// @notice This must be called by the Redirect Vault anytime a user deposits
+    /// @dev This is disperse any pending rewards a user has and
+    /// @param _token ERC20 token to be swapped into targetToken
     function onDeposit(address _user, uint256 _beforeBalance)
         external
         onlyVault
@@ -344,7 +422,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         _disburseRewards(user, rewards);
         /// updates reward information so user rewards start from current EPOCH
         _updateUserInfo(user, epoch);
-        emit UserHarvested(user, rewards);
+        emit UserHarvested(user, rewards, address(tokenOut));
     }
 
     function _disburseRewards(address _user, uint256 _rewards) internal {
@@ -364,8 +442,10 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         if (epoch > rewardStart) {
             for (uint256 i = rewardStart; i < epoch; i++) {
                 userEpochRewards = _calcUserEpochRewards(i, user.amount);
-                if (emergencyExitVault && i < emergencyExitEpoch) { 
-                    userEpochRewards = userEpochRewards.mul(emergencyTargetOut).div(emergencyVaultBalance);
+                if (emergencyExitVault && i < emergencyExitEpoch) {
+                    userEpochRewards = userEpochRewards
+                        .mul(emergencyTargetOut)
+                        .div(emergencyVaultBalance);
                 }
                 rewards = rewards.add(userEpochRewards);
             }
@@ -378,7 +458,6 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         view
         returns (uint256)
     {
-        
         uint256 rewards = epochRewards[_epoch].mul(_amt).div(
             epochBalance[_epoch]
         );
@@ -419,6 +498,8 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         epochBalance[epoch] = eligibleEpochRewards;
         /// set to equal total Supply as all current users with deposits are eligible for next epoch rewards
         eligibleEpochRewards = IRedirectVault(redirectVault).totalSupply();
+
+        emit EpochProcessed(epoch, amountOut, eligibleEpochRewards);
     }
 
     function _deposit() internal {
