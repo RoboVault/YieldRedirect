@@ -294,6 +294,16 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         _;
     }
 
+    /// @notice Throws if called by any account other than the governance
+    /// of the redirect vault
+    modifier onlyGovernance() {
+        require(
+            IRedirectVault(redirectVault).governance() == msg.sender,
+            "!governance"
+        );
+        _;
+    }
+
     /// @notice Only called by the vault. The vault sends harvest rewards to the
     /// reward distributor, and processEpoch() redirects the rewards to the targetToken
     /// @dev epoch is processed by processEpoch()
