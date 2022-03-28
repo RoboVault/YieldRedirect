@@ -24,7 +24,7 @@ def test_deposit_withdraw(vault, strategy, token, amount, user1, user2):
 
 def test_operation_harvest(vault, strategy, distributor, chain, accounts, gov, token, user1, user2, strategist, amount, conf):
 
-    targetToken = interface.IERC20Extended(conf['targetToken'])
+    targetToken = interface.IERC20Extended(distributor.tokenOut())
     target_token_before = targetToken.balanceOf(user1)
     user_balance_before = token.balanceOf(user1)
     token.approve(vault.address, amount, {"from": user1})
@@ -86,9 +86,80 @@ def test_operation_withdraw(chain, strategy, distributor, gov, token, vault, use
     print("Pending Rewards")
     print(pendingRewards)
 
-def test_multiple_deposits(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
+
+def test_operation_disable_vault(vault, strategy, distributor, chain, accounts, gov, token, user1, user2, strategist, amount, conf):
 
     targetToken = interface.IERC20Extended(conf['targetToken'])
+    user_balance_before = token.balanceOf(user1)
+    token.approve(vault.address, amount, {"from": user1})
+    vault.deposit(amount, {"from": user1})
+    assert token.balanceOf(user1) == user_balance_before - amount 
+    assert vault.balance() ==  amount
+
+    chain.sleep(10)
+    chain.mine(1)
+
+    vault.harvest({"from": gov})
+
+    # chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
+    chain.mine(1)
+
+
+    vault.harvest({"from": gov})
+
+    distributor.emergencyDisableVault()
+    targetToken = interface.IERC20Extended(distributor.tokenOut())
+    assert distributor.tokenOut() == conf['targetToken']
+
+    pendingRewards = distributor.getUserRewards(user1)
+    print("Pending Rewards")
+    print(pendingRewards)
+    target_token_before = targetToken.balanceOf(user1)
+    distributor.harvest({"from": user1})
+
+    assert distributor.getUserRewards(user1) == 0 
+    assert (targetToken.balanceOf(user1) - target_token_before) == pendingRewards
+
+    # ensure all earned tokens were paid out
+    assert distributor.targetBalance() == 0 
+
+    with reverts() : 
+        distributor.harvest({"from": user1})
+
+    vault.withdraw(amount, {"from": user1})
+
+    assert token.balanceOf(user1) == user_balance_before
+
+def test_operation_withdraw(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
+
+    user_balance_before = token.balanceOf(user1)
+    token.approve(vault.address, amount, {"from": user1})
+    vault.deposit(amount, {"from": user1})
+
+    assert token.balanceOf(user1) == user_balance_before - amount 
+    assert vault.balance() ==  amount
+
+    chain.sleep(10)
+    chain.mine(1)
+
+    vault.harvest({"from": gov})
+
+    chain.sleep(distributor.timePerEpoch())
+    chain.mine(1)
+
+
+    vault.harvest({"from": gov})
+
+    pendingRewards = distributor.getUserRewards(user1)
+    print("Pending Rewards")
+    print(pendingRewards)
+
+
+
+def test_multiple_deposits(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
+
+    targetToken = interface.IERC20Extended(distributor.tokenOut())
     user_balance_before = token.balanceOf(user1)
     depositAmt = int(amount / 3)
     token.approve(vault.address, amount, {"from": user1})
@@ -129,9 +200,10 @@ def test_multiple_deposits(chain, strategy, distributor, gov, token, vault, user
     assert targetToken.balanceOf(user2) == pendingRewards
 
 
+
 def test_operation_multiple_users(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
 
-    targetToken = interface.IERC20Extended(conf['targetToken'])
+    targetToken = interface.IERC20Extended(distributor.tokenOut())
     user_balance_before = token.balanceOf(user1)
     user_balance_before2 = token.balanceOf(user2)
 

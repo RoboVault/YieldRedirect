@@ -45,6 +45,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
                                 IMMUTABLES
     //////////////////////////////////////////////////////////////*/
     IERC20 public targetToken;
+    IERC20 public tokenOut;
     IVault public targetVault;
     address public redirectVault;
     address public router;
@@ -97,9 +98,11 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
 
         if (_targetVault == address(0)) {
             useTargetVault = false;
+            tokenOut = targetToken;
         } else {
             useTargetVault = true;
             // Approve allowance for the vault
+            tokenOut = IERC20(_targetVault);
             targetToken.safeApprove(_targetVault, type(uint256).max);
         }
     }
@@ -111,10 +114,19 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     /// @notice Set to true to enable deposits into the target vault
     bool public useTargetVault = true;
 
-    /// @notice set useTargetVault
-    /// @param _useTargetVault The new useTargetVault setting
-    function setUseTargetVault(bool _useTargetVault) external onlyAuthorized {
-        useTargetVault = _useTargetVault;
+    function emergencyDisableVault() external onlyAuthorized {
+        require(useTargetVault);
+        useTargetVault = false;
+        tokenOut = targetToken;
+        uint256 vaultBalance = targetVault.balanceOf(address(this));
+        uint256 targetBalanceBefore = targetToken.balanceOf(address(this));
+        targetVault.withdraw();
+        uint256 targetBalanceAfter = targetToken.balanceOf(address(this));
+
+        for (uint256 i = 0; i < epoch; i++) {
+            epochRewards[i] = epochRewards[i].mul(targetBalanceAfter.sub(targetBalanceBefore)).div(vaultBalance);
+        }        
+
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -211,7 +223,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     }
 
     function targetBalance() public view returns (uint256) {
-        return targetToken.balanceOf(address(this));
+        return tokenOut.balanceOf(address(this));
     }
 
     function targetVaultBalance() public view returns (uint256) {
@@ -333,7 +345,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     }
 
     function _disburseRewards(address _user, uint256 _rewards) internal {
-        targetToken.transfer(_user, _rewards);
+        tokenOut.transfer(_user, _rewards);
         _updateAmountClaimed(_user, _rewards);
     }
 
