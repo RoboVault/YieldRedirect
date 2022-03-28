@@ -36,6 +36,8 @@ interface IRewardDistributor {
     function permitRewardToken(address _token) external;
 
     function unpermitRewardToken(address _token) external;
+
+    function redirectVault() external view returns (address);
 }
 
 /// @title Manages reward distribution for a RedirectVault
@@ -136,37 +138,34 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     /// and validates the configuration of the contract.
     /// @param _redirectVault RedirectVault contract
     /// @param _router univ2 router (Spooky or Spirit)
-    /// @param _targetToken Target token - eg USDC
-    /// @param _targetVault Target vault - wg yvUSDC. Set this to the zero address if no vault is needed
-    /// @param _feeAddress Address for which the fees are sent
+    /// @param _feeAddress address for which fees are sent
     constructor(
         address _redirectVault,
         address _router,
-        address _targetToken,
-        address _targetVault,
         address _feeAddress
     ) {
         router = _router;
         redirectVault = _redirectVault;
-        targetToken = IERC20(_targetToken);
-        targetVault = IVault(_targetVault);
+
+        targetToken = IERC20(IRedirectVault(redirectVault).targetToken());
+        targetVault = IVault(IRedirectVault(redirectVault).targetVault());
         feeAddress = _feeAddress;
         require(
-            _targetToken == IVault(targetVault).token(),
+            address(targetToken) == IVault(targetVault).token(),
             "Vault.token() miss-match"
         );
 
         IERC20(oxd).approve(address(solidlyRouter), type(uint256).max);
         IERC20(weth).approve(address(router), type(uint256).max);
 
-        if (_targetVault == address(0)) {
+        if (address(targetVault) == address(0)) {
             useTargetVault = false;
             tokenOut = targetToken;
         } else {
             useTargetVault = true;
             // Approve allowance for the vault
-            tokenOut = IERC20(_targetVault);
-            targetToken.safeApprove(_targetVault, type(uint256).max);
+            tokenOut = IERC20(address(targetVault));
+            targetToken.safeApprove(address(targetVault), type(uint256).max);
         }
     }
 

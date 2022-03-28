@@ -478,8 +478,6 @@ interface IOxPool {
 // File: IRedirectVault.sol
 
 interface IRedirectVault {
-    function owner() external view returns (address);
-
     function isAuthorized(address _addr) external view returns (bool);
 
     function governance() external view returns (address);
@@ -487,6 +485,10 @@ interface IRedirectVault {
     function totalSupply() external view returns (uint256);
 
     function balanceOf(address _account) external view returns (uint256);
+
+    function targetToken() external view returns (address);
+
+    function targetVault() external view returns (address);
 }
 
 // File: ISolidlyRouter01.sol
@@ -1743,7 +1745,7 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
      */
     address public wftm = address(0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83);
     address public rewardToken0 =
-        address(0xc5A9848b9d145965d821AaeC8fA32aaEE026492d); //0XDAO
+        address(0xc5A9848b9d145965d821AaeC8fA32aaEE026492d); // 0XDAO
     address public rewardToken1 =
         address(0x888EF71766ca594DED1F0FA3AE64eD2941740A20); // solid
     uint8 public rewardTokens = 2;

@@ -375,8 +375,6 @@ interface IERC20 {
 // File: IRedirectVault.sol
 
 interface IRedirectVault {
-    function owner() external view returns (address);
-
     function isAuthorized(address _addr) external view returns (bool);
 
     function governance() external view returns (address);
@@ -384,6 +382,10 @@ interface IRedirectVault {
     function totalSupply() external view returns (uint256);
 
     function balanceOf(address _account) external view returns (uint256);
+
+    function targetToken() external view returns (address);
+
+    function targetVault() external view returns (address);
 }
 
 // File: MultiRewards.sol

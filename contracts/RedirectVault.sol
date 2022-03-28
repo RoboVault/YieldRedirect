@@ -43,6 +43,13 @@ contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
     /// and users interact with it to harvest their rewards
     IRewardDistributor public distributor;
 
+    /// @notice Underlying target token, eg USDC. This is what the rewards will be converted to,
+    /// afterwhich the rewards may be deposited to a vault if one is configured
+    address public immutable targetToken;
+
+    /// @notice the target vault for pending rewards to be deposited into.
+    address public immutable targetVault;
+
     /*///////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -83,43 +90,35 @@ contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
     /// @param _name the name of the vault token.
     /// @param _symbol the symbol of the vault token.
     /// @param _tvlCap initial deposit cap for scaling TVL safely
-    /// @param _targetToken All rewards are converted to this token, eg USDC, and deposited to a vault if one is configured.
-    /// @param _targetVault vault address, eg yvUSDC. Set to address(0) if a vault is not required
-    /// @param _feeAddress address fees are sent
+    /// @param _targetToken Target token - eg USDC
+    /// @param _targetVault Target vault - wg yvUSDC. Set this to the zero address if no vault is needed
     /// @param _approvalDelay new strategy timelock period in seconds
     constructor(
         address _token,
         string memory _name,
         string memory _symbol,
         uint256 _tvlCap,
-        address _router,
         address _targetToken,
         address _targetVault,
-        address _feeAddress,
         uint256 _approvalDelay
     ) ERC20NoTransfer(string(_name), string(_symbol)) {
         token = IERC20(_token);
         tvlCap = _tvlCap;
         approvalDelay = _approvalDelay;
-
-        /// @dev deploys the distributor, this is immutable in the current version
-        distributor = new RewardDistributor(
-            address(this),
-            _router,
-            _targetToken,
-            _targetVault,
-            _feeAddress
-        );
+        targetToken = _targetToken;
+        targetVault = _targetVault;
     }
 
     /// @notice Connects the vault to its initial strategy. One use only.
     /// @param _strategy the vault's initial strategy
-    function initialize(address _strategy)
+    function initialize(address _strategy, address _distributor)
         public
         onlyGovernance
         returns (bool)
     {
         require(!initialized, "Contract is already initialized.");
+        distributor = IRewardDistributor(_distributor);
+        require(distributor.redirectVault() == address(this), "!vault");
         strategy = _strategy;
         initialized = true;
         return true;

@@ -21,25 +21,25 @@ pid = 0
 gov = '0x7601630eC802952ba1ED2B6e4db16F699A0a5A87'
 gelatoJobs = '0x6EDe1597c05A0ca77031cBA43Ab887ccf24cd7e8'
 
-devAddress = accounts[-1]
 
 tvlCap = 2**256 - 1 
+devAddress = accounts[-1]
 
 vaultLQDR = RedirectVault.deploy(
         LQDRFTM, 
-        "Yield Redirect LQDRFTM",
-        "yrSYMBOL",
+        "Yield Redirect LQDRFTM - USDC",
+        "yrLQDRFTM-USDC",
         tvlCap,
         spookyRouter,
         usdc,
         yvUSDC,
-        devAddress,
+        dev,
         0,
-        {'from': devAddress}
+        {'from': dev}
     )
 
 
-strategy = StrategyLiquidDriver.deploy(vaultLQDR, LQDRFTM, pid, {"from": devAddress})
+strategy = StrategyLiquidDriver.deploy(vaultLQDR, LQDRFTM, pid, {"from": dev})
 
 
 RewardDistributorLQDR = RewardDistributor.at(vaultLQDR.distributor())

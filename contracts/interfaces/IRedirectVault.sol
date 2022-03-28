@@ -9,4 +9,8 @@ interface IRedirectVault {
     function totalSupply() external view returns (uint256);
 
     function balanceOf(address _account) external view returns (uint256);
+
+    function targetToken() external view returns (address);
+
+    function targetVault() external view returns (address);
 }
