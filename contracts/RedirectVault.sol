@@ -237,6 +237,27 @@ contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
         incrementWithdrawals(r);
     }
 
+
+    function emergencyWithdrawAll() public nonReentrant {
+        uint256 _shares = balanceOf(msg.sender);
+        require(_shares > 0, "please provide amount");
+        uint256 r = (balance().mul(_shares)).div(totalSupply());
+        _burn(msg.sender, _shares);
+
+        uint256 b = token.balanceOf(address(this));
+        if (b < r) {
+            uint256 _withdraw = r.sub(b);
+            IStrategy(strategy).withdraw(_withdraw);
+            uint256 _after = token.balanceOf(address(this));
+            uint256 _diff = _after.sub(b);
+            if (_diff < _withdraw) {
+                r = b.add(_diff);
+            }
+        }
+        token.safeTransfer(msg.sender, r);
+        distributor.onEmergencyWithdraw(msg.sender, _shares);
+        incrementWithdrawals(r);
+    }
     /**
      * @dev pass in max value of uint to effectively remove TVL cap
      */

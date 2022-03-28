@@ -31,6 +31,8 @@ interface IRewardDistributor {
 
     function onWithdraw(address _user, uint256 _amount) external;
 
+    function onEmergencyWithdraw(address _user, uint256 _amount) external;
+
     function permitRewardToken(address _token) external;
 
     function unpermitRewardToken(address _token) external;
@@ -53,21 +55,21 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     //////////////////////////////////////////////////////////////*/
     /// @notice Underlying target token, eg USDC. This is what the rewards will be converted to,
     /// afterwhich the rewards may be deposited to a vault if one is configured
-    IERC20 public constant targetToken;
+    IERC20 public immutable targetToken;
 
     /// @notice the target vault for pending rewards to be deposited into.
-    IVault public constant targetVault;
+    IVault public immutable targetVault;
 
     /// @notice if a vault is configured this is set to targetVault, otherwise this will be targetToken. This
     /// is the token users will withdraw when harvesting. If there is an issue with the vault, authorized roles
     /// can call emergencyDisableVault() which will change tokenOut to targetToken.
-    IERC20 public constant tokenOut;
+    IERC20 public tokenOut;
 
     /// @notice contract address for the parent redurect vault.
-    address public constant redirectVault;
+    address public immutable redirectVault;
 
     /// @notice univ2 router used for swaps
-    address public constant router;
+    address public immutable router;
 
     /// @notice solidly router used for swapping only OXD when it is a reward token
     ISolidlyRouter01 public constant solidlyRouter =
@@ -211,7 +213,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         emergencyTargetOut = targetBalanceAfter.sub(targetBalanceBefore);
 
         // Revoke vault approvals
-        targetToken.safeApprove(_targetVault, 0);
+        targetToken.safeApprove(address(targetVault), 0);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -327,7 +329,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     /// @param _token token to sell
     function manualRedirect(address _token) external onlyAuthorized {
         require(_token != address(targetToken));
-        _sellRewards(token);
+        _sellRewards(_token);
     }
 
     /// @notice swaps rewards depending on whether the token is oxd or not.
@@ -381,7 +383,6 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
 
     /// @notice This must be called by the Redirect Vault anytime a user deposits
     /// @dev This is disperse any pending rewards a user has and
-    /// @param _token ERC20 token to be swapped into targetToken
     function onDeposit(address _user, uint256 _beforeBalance)
         external
         onlyVault
@@ -412,6 +413,11 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
             _updateEligibleEpochRewards(_amount);
         }
 
+        _updateUserInfo(_user, epoch);
+    }
+
+    function onEmergencyWithdraw(address _user, uint256 _amount) external onlyVault {
+        // here we just make sure they don't continue earning rewards in future epochs
         _updateUserInfo(_user, epoch);
     }
 
@@ -532,4 +538,10 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     function unpermitRewardToken(address _token) external onlyAuthorized {
         IERC20(_token).safeApprove(router, 0);
     }
+
+    function emergencySweep(address _token, address _to) external onlyAuthorized {
+        uint256 balance = IERC20(_token).balanceOf(address(this));
+        IERC20(_token).transfer(_to, balance);
+    }
+
 }

@@ -62,6 +62,80 @@ def test_operation_harvest(vault, strategy, distributor, chain, accounts, gov, t
 
     assert token.balanceOf(user1) == user_balance_before
 
+
+def test_operation_emergency_withdraw(vault, strategy, distributor, chain, accounts, gov, token, user1, user2, strategist, amount, conf):
+
+    targetToken = interface.IERC20Extended(distributor.tokenOut())
+    target_token_before = targetToken.balanceOf(user1)
+    user_balance_before = token.balanceOf(user1)
+    token.approve(vault.address, amount, {"from": user1})
+    vault.deposit(amount, {"from": user1})
+    assert token.balanceOf(user1) == user_balance_before - amount 
+    assert vault.balance() ==  amount
+
+    chain.sleep(10)
+    chain.mine(1)
+
+    vault.harvest({"from": gov})
+
+    # chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
+    chain.mine(1)
+
+
+    vault.harvest({"from": gov})
+
+    pendingRewards = distributor.getUserRewards(user1)
+    print("Pending Rewards")
+    print(pendingRewards)
+
+    vault.emergencyWithdrawAll({"from": user1})
+    assert distributor.getUserRewards(user1) == 0 
+    assert (targetToken.balanceOf(user1) - target_token_before) == 0
+
+
+    with reverts() : 
+        distributor.harvest({"from": user1})
+
+
+    assert token.balanceOf(user1) == user_balance_before
+
+
+def test_operation_sweep_emergency_withdraw(vault, strategy, distributor, chain, accounts, gov, token, user1, user2, strategist, amount, conf):
+
+    targetToken = interface.IERC20Extended(distributor.tokenOut())
+    target_token_before = targetToken.balanceOf(user1)
+    user_balance_before = token.balanceOf(user1)
+    token.approve(vault.address, amount, {"from": user1})
+    vault.deposit(amount, {"from": user1})
+    assert token.balanceOf(user1) == user_balance_before - amount 
+    assert vault.balance() ==  amount
+
+    chain.sleep(10)
+    chain.mine(1)
+
+    vault.harvest({"from": gov})
+
+    # chain.sleep(10000)
+    chain.sleep(distributor.timePerEpoch())
+    chain.mine(1)
+
+
+    vault.harvest({"from": gov})
+
+    pendingRewards = distributor.getUserRewards(user1)
+    print("Pending Rewards")
+    print(pendingRewards)
+
+    govBalBefore = targetToken.balanceOf(gov)
+    distributor.emergencySweep(targetToken, gov , {"from": gov})
+    assert(govBalBefore +  pendingRewards) == targetToken.balanceOf(gov)
+
+    vault.emergencyWithdrawAll({"from": user1})
+    assert distributor.getUserRewards(user1) == 0 
+    assert (targetToken.balanceOf(user1) - target_token_before) == 0
+    assert token.balanceOf(user1) == user_balance_before
+
 def test_operation_withdraw(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
 
     user_balance_before = token.balanceOf(user1)
