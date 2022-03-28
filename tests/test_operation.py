@@ -136,30 +136,6 @@ def test_operation_sweep_emergency_withdraw(vault, strategy, distributor, chain,
     assert (targetToken.balanceOf(user1) - target_token_before) == 0
     assert token.balanceOf(user1) == user_balance_before
 
-def test_operation_withdraw(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
-
-    user_balance_before = token.balanceOf(user1)
-    token.approve(vault.address, amount, {"from": user1})
-    vault.deposit(amount, {"from": user1})
-
-    assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
-
-    chain.sleep(10)
-    chain.mine(1)
-
-    vault.harvest({"from": gov})
-
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
-
-
-    vault.harvest({"from": gov})
-
-    pendingRewards = distributor.getUserRewards(user1)
-    print("Pending Rewards")
-    print(pendingRewards)
-
 
 def test_operation_disable_vault(vault, strategy, distributor, chain, accounts, gov, token, user1, user2, strategist, amount, conf):
 
@@ -204,31 +180,6 @@ def test_operation_disable_vault(vault, strategy, distributor, chain, accounts, 
     vault.withdraw(amount, {"from": user1})
 
     assert token.balanceOf(user1) == user_balance_before
-
-def test_operation_withdraw(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
-
-    user_balance_before = token.balanceOf(user1)
-    token.approve(vault.address, amount, {"from": user1})
-    vault.deposit(amount, {"from": user1})
-
-    assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
-
-    chain.sleep(10)
-    chain.mine(1)
-
-    vault.harvest({"from": gov})
-
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
-
-
-    vault.harvest({"from": gov})
-
-    pendingRewards = distributor.getUserRewards(user1)
-    print("Pending Rewards")
-    print(pendingRewards)
-
 
 
 def test_multiple_deposits(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
