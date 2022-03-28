@@ -16,8 +16,6 @@ import "./interfaces/oxdao/IMultiRewards.sol";
 import "./interfaces/oxdao/IOxLens.sol";
 import "./interfaces/oxdao/IOxPool.sol";
 
-
-
 /**
  * @dev Implementation of a strategy to get yields from farming LP Pools in SpookySwap.
  * SpookySwap is an automated market maker (“AMM”) that allows two tokens to be exchanged on Fantom's Opera Network.
@@ -42,8 +40,8 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
      */
     address public wftm = address(0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83);
     address public rewardToken0 =
-        address(0xc5A9848b9d145965d821AaeC8fA32aaEE026492d); //0XDAO
-    address public rewardToken1 = 
+        address(0xc5A9848b9d145965d821AaeC8fA32aaEE026492d); // 0XDAO
+    address public rewardToken1 =
         address(0x888EF71766ca594DED1F0FA3AE64eD2941740A20); // solid
     uint8 public rewardTokens = 2;
     address public lpPair;
@@ -66,11 +64,12 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
         address(0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52);
 
     address[] private pools = new address[](1);
-    IOxLens public constant oxLens = IOxLens(0xDA00137c79B30bfE06d04733349d98Cf06320e69);
+    IOxLens public constant oxLens =
+        IOxLens(0xDA00137c79B30bfE06d04733349d98Cf06320e69);
     address public oxPoolAddress;
     address public stakingAddress;
-    address public constant solidlyRouter = 0xa38cd27185a464914D3046f0AB9d43356B34829D;
-
+    address public constant solidlyRouter =
+        0xa38cd27185a464914D3046f0AB9d43356B34829D;
 
     /**
      * @dev Associated Contracts:
@@ -124,17 +123,11 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
      * @dev Initializes the strategy. Sets parameters, saves routes, and gives allowances.
      * @notice see documentation for each variable above its respective declaration.
      */
-    constructor(
-        address _vault,
-        address _lpPair
-    ) {
-
-
-
+    constructor(address _vault, address _lpPair) {
         lpPair = _lpPair;
         vault = _vault;
         pair = IBaseV1Pair(_lpPair);
-        (,,,,,  lpToken0,  lpToken1) = pair.metadata();
+        (, , , , , lpToken0, lpToken1) = pair.metadata();
 
         if (lpToken0 != wftm) {
             wftmToLp0Route = [wftm, lpToken0];
@@ -149,7 +142,7 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
         tokenRouter[lpToken1] = spookyRouter;
         tokenRouter[rewardToken0] = spiritRouter;
         */
-        
+
         isEmitting[0] = true;
         isEmitting[1] = true;
 
@@ -179,7 +172,7 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
         uint256 pairBal = IERC20(lpPair).balanceOf(address(this));
 
         if (pairBal > 0) {
-            // Deposit 
+            // Deposit
             IOxPool(oxPoolAddress).depositLp(pairBal);
             // Stake
             IMultiRewards(stakingAddress).stake(pairBal);
@@ -235,8 +228,6 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
         _rewards = new MultiRewards[](2);
         _rewards[0] = MultiRewards(rewardToken0, balanceReward0);
         _rewards[1] = MultiRewards(rewardToken1, balanceReward1);
-
-
     }
 
     /**
@@ -259,7 +250,6 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
      */
     function balanceOfPool() public view returns (uint256) {
         return IMultiRewards(stakingAddress).balanceOf(address(this));
-
     }
 
     /**
@@ -307,7 +297,10 @@ contract Strategy0xDAO is IStrategy, StrategyAuthorized, Pausable {
 
     function giveAllowances() internal {
         IERC20(lpPair).safeApprove(address(oxPoolAddress), type(uint256).max);
-        IERC20(oxPoolAddress).safeApprove(address(stakingAddress), type(uint256).max);
+        IERC20(oxPoolAddress).safeApprove(
+            address(stakingAddress),
+            type(uint256).max
+        );
         IERC20(rewardToken0).safeApprove(solidlyRouter, type(uint256).max);
         IERC20(wftm).safeApprove(spookyRouter, type(uint256).max);
 

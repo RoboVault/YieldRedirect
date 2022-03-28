@@ -6,6 +6,7 @@ interface IVault {
     function deposit(uint256 amount) external;
 
     function withdraw() external;
+
     function withdraw(uint256 maxShares) external;
 
     function pricePerShare() external view returns (uint256);

@@ -308,14 +308,14 @@ def test_operation_multiple_users_emergency_withdraw(chain, strategy, distributo
     vault.harvest({"from": gov})
     
     # there will be some dust here so use pytest.approx
-    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 2e-3) == distributor.targetBalance()
+    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 1e-5) == distributor.targetBalance()
 
     distributor.emergencyDisableVault({"from": gov})
     targetToken = interface.IERC20Extended(distributor.tokenOut())
     assert distributor.tokenOut() == conf['targetToken']
 
 
-    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 2e-3) == distributor.targetBalance()
+    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 1e-5) == distributor.targetBalance()
 
     user1TaretBefore = targetToken.balanceOf(user1)
     user2TaretBefore = targetToken.balanceOf(user2)

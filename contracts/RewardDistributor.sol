@@ -382,7 +382,9 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     }
 
     /// @notice This must be called by the Redirect Vault anytime a user deposits
-    /// @dev This is disperse any pending rewards a user has and
+    /// @dev This will disperse any pending rewards and update the user accounting varaibles
+    /// @param _user address of the user depositing
+    /// @param _beforeBalance the balance of the user before depositing. Measured in the vault.token()
     function onDeposit(address _user, uint256 _beforeBalance)
         external
         onlyVault
@@ -394,13 +396,20 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
             _disburseRewards(_user, rewards);
         }
 
+        /// @dev a caviat of the account approach is that anytime a user deposits the are withdrawing
+        /// their claim in the current epoch. This is necessary to ensure the rewards accounting is sound.
         if (userInfo[_user].epochStart < epoch) {
             _updateEligibleEpochRewards(_beforeBalance);
         }
-        // to prevent users leaching i.e. deposit just before epoch rewards distributed user will start to be eligible for rewards following epoch
+
+        // To prevent users leaching i.e. deposit just before epoch rewards distributed user will start to be eligible for rewards following epoch
         _updateUserInfo(_user, epoch + 1);
     }
 
+    /// @notice This must be called by the Redirect Vault anytime a user withdraws
+    /// @dev This will disperse any pending rewards and update the user accounting varaibles
+    /// @param _user address of the user depositing
+    /// @param _amount the amount the user withdrew
     function onWithdraw(address _user, uint256 _amount) external onlyVault {
         uint256 rewards = getUserRewards(_user);
 
@@ -416,11 +425,15 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         _updateUserInfo(_user, epoch);
     }
 
-    function onEmergencyWithdraw(address _user, uint256 _amount) external onlyVault {
+    function onEmergencyWithdraw(address _user, uint256 _amount)
+        external
+        onlyVault
+    {
         // here we just make sure they don't continue earning rewards in future epochs
         _updateUserInfo(_user, epoch);
     }
 
+    /// @notice users call this to claim their pending rewards. They will be redeemed in targetToken or targetVault
     function harvest() public nonReentrant {
         address user = msg.sender;
         uint256 rewards = getUserRewards(user);
@@ -431,11 +444,16 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         emit UserHarvested(user, rewards, address(tokenOut));
     }
 
+    /// @notice transfers the _rewards to the _user and updates their reward balance
+    /// @param _rewards amount of the tokenOut needs to be sent to the user
+    /// @param _user the user calling harvest()
     function _disburseRewards(address _user, uint256 _rewards) internal {
         tokenOut.transfer(_user, _rewards);
         _updateAmountClaimed(_user, _rewards);
     }
 
+    /// @notice returns the sum of a users pending rewards in the tokenOut units
+    /// @param _user the user calling harvest()
     function getUserRewards(address _user) public view returns (uint256) {
         UserInfo memory user = userInfo[_user];
         uint256 rewardStart = user.epochStart;
@@ -459,6 +477,9 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         return (rewards);
     }
 
+    /// @notice helper function to calculate a users reward for a give epoch
+    /// @param _epoch epoch number to calculate the rewards for
+    /// @param _amt the users vault.token() balance for that epoch
     function _calcUserEpochRewards(uint256 _epoch, uint256 _amt)
         internal
         view
@@ -470,16 +491,25 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         return (rewards);
     }
 
+    /// @notice Updates the total amount claimed by a user
+    /// @param _user user address
+    /// @param _rewardsPaid amount the totalClaimed amount needs to be incremented by for _user
     function _updateAmountClaimed(address _user, uint256 _rewardsPaid)
         internal
     {
         totalClaimed[_user] = totalClaimed[_user] + _rewardsPaid;
     }
 
-    function _updateEligibleEpochRewards(uint256 amt) internal {
-        eligibleEpochRewards = eligibleEpochRewards.sub(amt);
+    /// @notice updates the eligible rewards for this epoch
+    /// @dev eligibleEpochRewards = token.balanceOf(vault) - SUM{ Balance of users deposited this epoch (and have remained in the vault) }
+    /// @param _amount amount the user deposited
+    function _updateEligibleEpochRewards(uint256 _amount) internal {
+        eligibleEpochRewards = eligibleEpochRewards.sub(_amount);
     }
 
+    /// @notice update the userInfo state for a user. This is uses to maintain accounting for the users rewards
+    /// @param _user user address
+    /// @param _epoch epoch the user joined the accounting records
     function _updateUserInfo(address _user, uint256 _epoch) internal {
         userInfo[_user] = UserInfo(
             IRedirectVault(redirectVault).balanceOf(_user),
@@ -488,6 +518,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         );
     }
 
+    /// @notice Increments the epoch by 1
     function _incrementEpoch() internal {
         epoch = epoch.add(1);
         lastEpoch = block.timestamp;
@@ -508,6 +539,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         emit EpochProcessed(epoch, amountOut, eligibleEpochRewards);
     }
 
+    /// @notice deposits targetToken into the targetVault if a vault is configured and enabled
     function _deposit() internal {
         if (useTargetVault) {
             uint256 bal = targetToken.balanceOf(address(this));
@@ -515,6 +547,10 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         }
     }
 
+    /// @notice helper function to get the univ2 token path
+    /// @param _token_in input token (token being swapped)
+    /// @param _token_out out token (desired token)
+    /// @param _weth wftm
     function _getTokenOutPath(
         address _token_in,
         address _token_out,
@@ -531,17 +567,23 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         }
     }
 
+    /// @notice approves the router to transfer _token
+    /// @param _token token to be approved
     function permitRewardToken(address _token) external onlyAuthorized {
         IERC20(_token).safeApprove(router, type(uint256).max);
     }
 
+    /// @notice revokes the routers approval to transfer _token
+    /// @param _token token to be revoked
     function unpermitRewardToken(address _token) external onlyAuthorized {
         IERC20(_token).safeApprove(router, 0);
     }
 
-    function emergencySweep(address _token, address _to) external onlyAuthorized {
+    function emergencySweep(address _token, address _to)
+        external
+        onlyAuthorized
+    {
         uint256 balance = IERC20(_token).balanceOf(address(this));
         IERC20(_token).transfer(_to, balance);
     }
-
 }

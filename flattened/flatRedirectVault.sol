@@ -2271,7 +2271,6 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     uint256 public epoch = 0;
     uint256 public lastEpoch;
     uint256 constant BPS_ADJ = 10000;
-    uint256 public timeForKeeperToConvert = 3600;
 
     mapping(address => UserInfo) public userInfo;
     // tracks rewards of traget token for given Epoch
