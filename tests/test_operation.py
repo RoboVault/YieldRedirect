@@ -200,7 +200,6 @@ def test_multiple_deposits(chain, strategy, distributor, gov, token, vault, user
     assert targetToken.balanceOf(user2) == pendingRewards
 
 
-
 def test_operation_multiple_users(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
 
     targetToken = interface.IERC20Extended(distributor.tokenOut())
@@ -241,6 +240,70 @@ def test_operation_multiple_users(chain, strategy, distributor, gov, token, vaul
     distributor.harvest({"from": user2})
 
     assert (distributor.getUserRewards(user1) + distributor.getUserRewards(user2)) == 0
+
+    with reverts() : 
+        distributor.harvest({"from": user1})
+
+    vault.withdraw(amount, {"from": user1})
+    vault.withdraw(amount, {"from": user2})
+    assert token.balanceOf(user1) == user_balance_before
+    assert token.balanceOf(user2) == user_balance_before2
+
+def test_operation_multiple_users_emergency_withdraw(chain, strategy, distributor, gov, token, vault, user1, user2 ,strategist, amount, conf):
+
+    targetToken = interface.IERC20Extended(distributor.tokenOut())
+    user_balance_before = token.balanceOf(user1)
+    user_balance_before2 = token.balanceOf(user2)
+
+    token.approve(vault.address, amount, {"from": user1})
+    vault.deposit(amount, {"from": user1})
+    assert token.balanceOf(user1) == user_balance_before - amount 
+    assert vault.balance() ==  amount
+
+    chain.sleep(10)
+    chain.mine(1)
+    with reverts() : 
+        distributor.harvest({"from": user1})
+    vault.harvest({"from": gov})
+
+    token.approve(vault.address, amount, {"from": user2})
+    vault.deposit(amount, {"from": user2})
+
+    chain.sleep(distributor.timePerEpoch())
+    chain.mine(1)
+
+    assert distributor.getUserRewards(user1) == distributor.targetBalance()
+    assert distributor.getUserRewards(user2) == 0
+
+    vault.harvest({"from": gov})
+
+    chain.sleep(distributor.timePerEpoch())
+    chain.mine(1)
+
+    vault.harvest({"from": gov})
+    
+    # there will be some dust here so use pytest.approx
+    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 2e-3) == distributor.targetBalance()
+
+    distributor.emergencyDisableVault({"from": gov})
+    targetToken = interface.IERC20Extended(distributor.tokenOut())
+    assert distributor.tokenOut() == conf['targetToken']
+
+
+    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 2e-3) == distributor.targetBalance()
+
+    user1TaretBefore = targetToken.balanceOf(user1)
+    user2TaretBefore = targetToken.balanceOf(user2)
+
+    pendingUser1 = distributor.getUserRewards(user1)
+    pendingUser2 = distributor.getUserRewards(user2)
+
+    distributor.harvest({"from": user1})
+    distributor.harvest({"from": user2})
+
+    assert (distributor.getUserRewards(user1) + distributor.getUserRewards(user2)) == 0
+    assert (user1TaretBefore + pendingUser1) == targetToken.balanceOf(user1)
+    assert (user2TaretBefore + pendingUser2) == targetToken.balanceOf(user2)
 
     with reverts() : 
         distributor.harvest({"from": user1})
