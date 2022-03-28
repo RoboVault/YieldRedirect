@@ -3,7 +3,6 @@ from brownie import config
 from brownie import Contract
 from brownie import interface, project
 
-
 @pytest.fixture
 def wftm(interface):
     yield interface.ERC20('0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83')
@@ -75,9 +74,11 @@ def usdc():
 def reward_token(conf):
     yield interface.IERC20(conf['farmToken'])
 
+"""
 @pytest.fixture
 def router(conf):
     yield Contract(conf['router'])
+"""
 
 @pytest.fixture
 def pid(conf):
@@ -200,7 +201,7 @@ def amount(accounts, token, user1, user2, conf):
 @pytest.fixture
 def weth():
     token_address = "0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83"
-    yield Contract(token_address)
+    yield interface.IERC20Extended(token_address)
 
 
 @pytest.fixture
@@ -212,7 +213,7 @@ def weth_amout(user, weth):
 
 @pytest.fixture
 def vault(RedirectVault, strategist, keeper, gov, conf, amount):
-    tvlCap = amount * 2
+    tvlCap = amount * 10
     vault = RedirectVault.deploy(
         conf['token'], 
         "Yield Redirect Test",

@@ -113,19 +113,22 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
 
     /// @notice Set to true to enable deposits into the target vault
     bool public useTargetVault = true;
+    bool public emergencyExitVault = false; 
+    uint256 public emergencyExitEpoch;
+    uint256 public emergencyTargetOut;
+    uint256 public emergencyVaultBalance;
 
     function emergencyDisableVault() external onlyAuthorized {
         require(useTargetVault);
         useTargetVault = false;
+        emergencyExitVault = true;
+        emergencyExitEpoch = epoch;
         tokenOut = targetToken;
-        uint256 vaultBalance = targetVault.balanceOf(address(this));
+        emergencyVaultBalance = targetVault.balanceOf(address(this));
         uint256 targetBalanceBefore = targetToken.balanceOf(address(this));
         targetVault.withdraw();
         uint256 targetBalanceAfter = targetToken.balanceOf(address(this));
-
-        for (uint256 i = 0; i < epoch; i++) {
-            epochRewards[i] = epochRewards[i].mul(targetBalanceAfter.sub(targetBalanceBefore)).div(vaultBalance);
-        }        
+        emergencyTargetOut = targetBalanceAfter.sub(targetBalanceBefore);
 
     }
 
@@ -361,6 +364,9 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         if (epoch > rewardStart) {
             for (uint256 i = rewardStart; i < epoch; i++) {
                 userEpochRewards = _calcUserEpochRewards(i, user.amount);
+                if (emergencyExitVault && i < emergencyExitEpoch) { 
+                    userEpochRewards = userEpochRewards.mul(emergencyTargetOut).div(emergencyVaultBalance);
+                }
                 rewards = rewards.add(userEpochRewards);
             }
         }
@@ -372,6 +378,7 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         view
         returns (uint256)
     {
+        
         uint256 rewards = epochRewards[_epoch].mul(_amt).div(
             epochBalance[_epoch]
         );

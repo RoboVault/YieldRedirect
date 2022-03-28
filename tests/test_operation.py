@@ -108,7 +108,7 @@ def test_operation_disable_vault(vault, strategy, distributor, chain, accounts, 
 
     vault.harvest({"from": gov})
 
-    distributor.emergencyDisableVault()
+    distributor.emergencyDisableVault({"from": gov})
     targetToken = interface.IERC20Extended(distributor.tokenOut())
     assert distributor.tokenOut() == conf['targetToken']
 
