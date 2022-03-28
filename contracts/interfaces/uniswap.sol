@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity >=0.6.0 <0.7.0;
+pragma solidity ^0.8.11;
 pragma experimental ABIEncoderV2;
+import "./IERC20Extended.sol";
 
 interface IUniswapV2Router01 {
     function factory() external pure returns (address);
@@ -206,4 +207,19 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
         address to,
         uint256 deadline
     ) external;
+}
+
+interface IUniswapV2Pair is IERC20Extended {
+    function token0() external view returns (address);
+
+    function token1() external view returns (address);
+
+    function getReserves()
+        external
+        view
+        returns (
+            uint112 reserve0,
+            uint112 reserve1,
+            uint32 blockTimestampLast
+        );
 }

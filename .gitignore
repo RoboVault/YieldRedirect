@@ -1,4 +1,6 @@
 
 build/*
-
+node_modules/*
 *_pycache_*
+
+yarn.lock
