@@ -271,13 +271,6 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
         return ((block.timestamp >= lastEpoch.add(timePerEpoch)));
     }
 
-    /**
-     * @dev Returns the address of the current owner.
-     */
-    function owner() public view virtual returns (address) {
-        return IRedirectVault(redirectVault).owner();
-    }
-
     /// @notice Throws if called by any account other than the vault.
     modifier onlyVault() {
         require(redirectVault == msg.sender, "!redirectVault");

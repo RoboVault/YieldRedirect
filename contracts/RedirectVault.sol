@@ -164,8 +164,6 @@ contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
     /// into the vault. The vault is then in charge of sending funds into the strategy.
     /// @notice the _before and _after variables are used to account properly for
     /// 'burn-on-transaction' tokens.
-    /// @notice to ensure 'owner' can't sneak an implementation past the timelock,
-    /// it's set to true
     function deposit(uint256 _amount) public nonReentrant {
         require(_amount != 0, "please provide amount");
         uint256 _pool = balance();
