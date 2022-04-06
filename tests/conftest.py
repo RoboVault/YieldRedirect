@@ -9,9 +9,11 @@ def wftm(interface):
 
 boo = '0x841FAD6EAe12c286d1Fd18d1d525DFfA75C7EFFE'
 lqdr = '0x10b620b2dbAC4Faa7D7FFD71Da486f5D44cd86f9'
+beets = '0xF24Bcf4d1e507740041C9cFd2DddB29585aDCe1e'
 spookyRouter =  '0xF491e7B69E4244ad4002BC14e878a34207E38c29'
 spookyMasterChef = '0x2b2929E785374c651a81A63878Ab22742656DcDd'
 lqdrMasterChef = '0x6e2ad6527901c9664f016466b8DA1357a004db0f'
+beetsMasterChef = '0x8166994d9ebBe5829EC86Bd81258149B87faCfd3'
 
 oxd = '0xc5A9848b9d145965d821AaeC8fA32aaEE026492d'
 solid = '0x888EF71766ca594DED1F0FA3AE64eD2941740A20'
@@ -46,17 +48,56 @@ CONFIG = {
         'whale' : '0xC009BC33201A85800b3593A40a178521a8e60a02'
     },
 
-    # 'LQDRFTMyvUSDC': {
-    #     'token': '0xe7E90f5a767406efF87Fdad7EB07ef407922EC1D',
-    #     'targetToken' : usdc,
-    #     'targetVault' : yvUSDC,
-    #     'farmAddress': lqdrMasterChef,
-    #     'farmToken' : lqdr,
-    #     'router' : spookyRouter,
-    #     'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
-    #     'pid' : 5,
-    #     'whale' : '0x717BDE1AA46a0Fcd937af339f95361331412C74C'
-    # }
+    'LQDRFTMyvUSDC': {
+        'token': '0xe7E90f5a767406efF87Fdad7EB07ef407922EC1D',
+        'targetToken' : _usdc,
+        'targetVault' : yvUSDC,
+        'farmAddress': lqdrMasterChef,
+        'farmToken' : lqdr,
+        'router' : spookyRouter,
+        'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
+        'pid' : 5,
+        'whale' : '0x717BDE1AA46a0Fcd937af339f95361331412C74C'
+    },
+
+    'BOOFTMyvUSDC': {
+        'token': '0xEc7178F4C41f346b2721907F5cF7628E388A7a58',
+        'targetToken' : _usdc,
+        'targetVault' : yvUSDC,
+        'farmAddress': lqdrMasterChef,
+        'farmToken' : lqdr,
+        'router' : spookyRouter,
+        'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
+        'pid' : 10,
+        'whale' : spookyMasterChef
+    },
+
+    'SPIRITFTMyvUSDC': {
+        'token': '0x30748322B6E34545DBe0788C421886AEB5297789',
+        'targetToken' : _usdc,
+        'targetVault' : yvUSDC,
+        'farmAddress': lqdrMasterChef,
+        'farmToken' : lqdr,
+        'router' : spookyRouter,
+        'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
+        'pid' : 2,
+        'whale' : '0x9083EA3756BDE6Ee6f27a6e996806FBD37F6F093'
+    },
+
+
+    'BeetsFTMyvUSDC': {
+        'token': '0xcdE5a11a4ACB4eE4c805352Cec57E236bdBC3837',
+        'targetToken' : _usdc,
+        'targetVault' : yvUSDC,
+        'farmAddress': beetsMasterChef,
+        'farmToken' : beets,
+        'router' : spookyRouter,
+        'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
+        'pid' : 9,
+        'whale' : '0xa1E849B1d6c2Fd31c63EEf7822e9E0632411ada7'
+    },
+
+
 
 }
 
@@ -64,7 +105,7 @@ CONFIG = {
 
 @pytest.fixture
 def conf():
-    yield CONFIG['0XMIMUSDCyvUSD']
+    yield CONFIG['BeetsFTMyvUSDC']
 
 @pytest.fixture
 def usdc():
@@ -236,13 +277,16 @@ def distributor(RewardDistributor, vault):
 
 
 @pytest.fixture
-def strategy(strategist, keeper, vault, distributor, StrategyLiquidDriver, Strategy0xDAO ,gov, token, pid, reward_token, conf):
+def strategy(strategist, keeper, vault, distributor, StrategyLiquidDriver, Strategy0xDAO, StrategyBeethoven ,gov, token, pid, reward_token, conf):
     if conf['farmAddress'] == '0XDAO' :
         strategy = Strategy0xDAO.deploy(vault, token.address, {"from": gov})
         distributor.permitRewardToken(oxd, {'from': gov})
         distributor.permitRewardToken(solid, {'from': gov})
-    else : 
+    if conf['farmAddress'] == lqdrMasterChef:
         strategy = StrategyLiquidDriver.deploy(vault, token.address, pid, {"from": gov})
+    if conf['farmAddress'] == beetsMasterChef:
+        strategy = StrategyBeethoven.deploy(vault, token.address, pid, {"from": gov})
+
 
         distributor.permitRewardToken(reward_token, {'from': gov})
 
