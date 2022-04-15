@@ -9,9 +9,14 @@ def wftm(interface):
 
 boo = '0x841FAD6EAe12c286d1Fd18d1d525DFfA75C7EFFE'
 lqdr = '0x10b620b2dbAC4Faa7D7FFD71Da486f5D44cd86f9'
+beets = '0xF24Bcf4d1e507740041C9cFd2DddB29585aDCe1e'
+
+spiritRouter = '0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52'
 spookyRouter =  '0xF491e7B69E4244ad4002BC14e878a34207E38c29'
 spookyMasterChef = '0x2b2929E785374c651a81A63878Ab22742656DcDd'
 lqdrMasterChef = '0x6e2ad6527901c9664f016466b8DA1357a004db0f'
+beetsMasterChef = '0x8166994d9ebBe5829EC86Bd81258149B87faCfd3'
+
 
 oxd = '0xc5A9848b9d145965d821AaeC8fA32aaEE026492d'
 solid = '0x888EF71766ca594DED1F0FA3AE64eD2941740A20'
@@ -46,17 +51,66 @@ CONFIG = {
         'whale' : '0xC009BC33201A85800b3593A40a178521a8e60a02'
     },
 
-    # 'LQDRFTMyvUSDC': {
-    #     'token': '0xe7E90f5a767406efF87Fdad7EB07ef407922EC1D',
-    #     'targetToken' : usdc,
-    #     'targetVault' : yvUSDC,
-    #     'farmAddress': lqdrMasterChef,
-    #     'farmToken' : lqdr,
-    #     'router' : spookyRouter,
-    #     'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
-    #     'pid' : 5,
-    #     'whale' : '0x717BDE1AA46a0Fcd937af339f95361331412C74C'
-    # }
+    'LQDRFTMyvUSDC': {
+        'token': '0xe7E90f5a767406efF87Fdad7EB07ef407922EC1D',
+        'targetToken' : _usdc,
+        'targetVault' : yvUSDC,
+        'farmAddress': lqdrMasterChef,
+        'farmToken' : lqdr,
+        'router' : spookyRouter,
+        'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
+        'pid' : 5,
+        'whale' : '0x717BDE1AA46a0Fcd937af339f95361331412C74C'
+    },
+
+    'BOOFTMyvUSDC': {
+        'token': '0xEc7178F4C41f346b2721907F5cF7628E388A7a58',
+        'targetToken' : _usdc,
+        'targetVault' : yvUSDC,
+        'farmAddress': lqdrMasterChef,
+        'farmToken' : lqdr,
+        'router' : spookyRouter,
+        'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
+        'pid' : 10,
+        'whale' : '0xb07Fddd8a191D540b913a7e360119fa2E1064358'
+    },
+
+
+    'SPIRITFTMyvUSDC': {
+        'token': '0x30748322B6E34545DBe0788C421886AEB5297789',
+        'targetToken' : _usdc,
+        'targetVault' : yvUSDC,
+        'farmAddress': lqdrMasterChef,
+        'farmToken' : lqdr,
+        'router' : spiritRouter,
+        'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
+        'pid' : 2,
+        'whale' : '0x9083EA3756BDE6Ee6f27a6e996806FBD37F6F093'
+    },
+
+    'BeetsFTMUSDCyvUSDC': {
+        'token': '0xcdF68a4d525Ba2E90Fe959c74330430A5a6b8226',
+        'targetToken' : _usdc,
+        'targetVault' : yvUSDC,
+        'farmAddress': beetsMasterChef,
+        'farmToken' : beets,
+        'router' : spookyRouter,
+        'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
+        'pid' : 8,
+        'whale' : '0xa1E849B1d6c2Fd31c63EEf7822e9E0632411ada7'
+    },
+
+    'BeetsFTMLQDRyvUSDC': {
+        'token': '0x5E02aB5699549675A6d3BEEb92A62782712D0509',
+        'targetToken' : _usdc,
+        'targetVault' : yvUSDC,
+        'farmAddress': beetsMasterChef,
+        'farmToken' : beets,
+        'router' : spookyRouter,
+        'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
+        'pid' : 36,
+        'whale' : '0xdb7D775ce48Be3c112e9b9b3f367d1c679c56088'
+    },
 
 }
 
@@ -64,7 +118,7 @@ CONFIG = {
 
 @pytest.fixture
 def conf():
-    yield CONFIG['0XMIMUSDCyvUSD']
+    yield CONFIG['BOOFTMyvUSDC']
 
 @pytest.fixture
 def usdc():
@@ -187,7 +241,7 @@ def lp_price(token, token_price):
 
 @pytest.fixture
 def amount(accounts, token, user1, user2, conf):
-    amount = token.balanceOf(conf['whale']) * 0.05
+    amount = token.balanceOf(conf['whale']) * 0.01
     # In order to get some funds for the token you are about to use,
     # it impersonate an exchange address to use it's funds.
     # reserve = accounts.at("0x39B3bd37208CBaDE74D0fcBDBb12D606295b430a", force=True) # WFTM
@@ -219,10 +273,8 @@ def vault(RedirectVault, strategist, keeper, gov, conf, amount):
         "Yield Redirect Test",
         "yrSYMBOL",
         tvlCap,
-        conf['router'],
         conf['targetToken'],
         conf['targetVault'],
-        gov.address,
         0,
         {'from': gov}
     )
@@ -231,23 +283,34 @@ def vault(RedirectVault, strategist, keeper, gov, conf, amount):
 
 
 @pytest.fixture
-def distributor(RewardDistributor, vault):
-    yield RewardDistributor.at(vault.distributor())
+def distributor(RewardDistributor, vault, gov, conf, rewards):
+    distributor = RewardDistributor.deploy(
+        vault, 
+        conf['router'],
+        rewards,
+        {'from': gov}
+    )
+    
+
+
+    yield distributor
 
 
 @pytest.fixture
-def strategy(strategist, keeper, vault, distributor, StrategyLiquidDriver, Strategy0xDAO ,gov, token, pid, reward_token, conf):
+def strategy(strategist, keeper, vault, distributor, StrategyLiquidDriver, Strategy0xDAO, StrategyBeethoven ,gov, token, pid, reward_token, conf):
     if conf['farmAddress'] == '0XDAO' :
         strategy = Strategy0xDAO.deploy(vault, token.address, {"from": gov})
         distributor.permitRewardToken(oxd, {'from': gov})
         distributor.permitRewardToken(solid, {'from': gov})
-    else : 
+    if conf['farmAddress'] == lqdrMasterChef:
         strategy = StrategyLiquidDriver.deploy(vault, token.address, pid, {"from": gov})
-
+        distributor.permitRewardToken(reward_token, {'from': gov})
+    if conf['farmAddress'] == beetsMasterChef:
+        strategy = StrategyBeethoven.deploy(vault, token.address, pid, {"from": gov})
         distributor.permitRewardToken(reward_token, {'from': gov})
 
 
-    vault.initialize(strategy, {"from": gov})
+    vault.initialize(strategy, distributor, {"from": gov})
     yield strategy
 
 # Function scoped isolation fixture to enable xdist.

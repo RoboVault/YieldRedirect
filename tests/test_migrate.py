@@ -2,7 +2,7 @@ import pytest
 from brownie import interface
 from brownie import reverts
 
-def test_migrate(StrategyLiquidDriver, Strategy0xDAO, vault, strategy, distributor, chain, accounts, gov, token, user1, user2, strategist, amount, conf):
+def test_migrate(StrategyLiquidDriver, Strategy0xDAO, StrategyBeethoven, vault, strategy, distributor, chain, accounts, gov, token, user1, user2, strategist, amount, conf):
 
     targetToken = interface.IERC20Extended(distributor.tokenOut())
     target_token_before = targetToken.balanceOf(user1)
@@ -38,10 +38,16 @@ def test_migrate(StrategyLiquidDriver, Strategy0xDAO, vault, strategy, distribut
     with reverts() : 
         distributor.harvest({"from": user1})
 
+    lqdrMasterChef = '0x6e2ad6527901c9664f016466b8DA1357a004db0f'
+    beetsMasterChef = '0x8166994d9ebBe5829EC86Bd81258149B87faCfd3'
+
+
     if conf['farmAddress'] == '0XDAO' :
         newStrat = Strategy0xDAO.deploy(vault, token.address, {"from": gov})
-    else : 
-        newStrat = StrategyLiquidDriver.deploy(vault, token.address, pid, {"from": gov})
+    if conf['farmAddress'] == lqdrMasterChef:
+        newStrat = StrategyLiquidDriver.deploy(vault, token.address, conf['pid'], {"from": gov})
+    if conf['farmAddress'] == beetsMasterChef:
+        newStrat = StrategyBeethoven.deploy(vault, token.address, conf['pid'], {"from": gov})
 
 
     vault.proposeStrat(newStrat, {"from": gov})
