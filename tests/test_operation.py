@@ -38,8 +38,8 @@ def test_operation_harvest(vault, strategy, distributor, chain, accounts, gov, t
     vault.harvest({"from": gov})
 
     # chain.sleep(10000)
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(10 + distributor.timePerEpoch())
+    chain.mine(5)
 
 
     vault.harvest({"from": gov})
@@ -79,8 +79,8 @@ def test_operation_emergency_withdraw(vault, strategy, distributor, chain, accou
     vault.harvest({"from": gov})
 
     # chain.sleep(10000)
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(10 + distributor.timePerEpoch())
+    chain.mine(5)
 
 
     vault.harvest({"from": gov})
@@ -117,8 +117,8 @@ def test_operation_sweep_emergency_withdraw(vault, strategy, distributor, chain,
     vault.harvest({"from": gov})
 
     # chain.sleep(10000)
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(10 + distributor.timePerEpoch())
+    chain.mine(5)
 
 
     vault.harvest({"from": gov})
@@ -152,8 +152,8 @@ def test_operation_disable_vault(vault, strategy, distributor, chain, accounts, 
     vault.harvest({"from": gov})
 
     # chain.sleep(10000)
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(10 + distributor.timePerEpoch())
+    chain.mine(5)
 
 
     vault.harvest({"from": gov})
@@ -198,8 +198,8 @@ def test_multiple_deposits(chain, strategy, distributor, gov, token, vault, user
 
     vault.harvest({"from": gov})
 
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(10 + distributor.timePerEpoch())
+    chain.mine(5)
     vault.harvest({"from": gov})
 
     pendingRewards = distributor.getUserRewards(user1)
@@ -212,8 +212,8 @@ def test_multiple_deposits(chain, strategy, distributor, gov, token, vault, user
     with reverts(): 
         distributor.harvest({"from": user1})
 
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(10 + distributor.timePerEpoch())
+    chain.mine(5)
 
     vault.harvest({"from": gov})
     user1Rewards = distributor.getUserRewards(user1)
@@ -245,21 +245,21 @@ def test_operation_multiple_users(chain, strategy, distributor, gov, token, vaul
     token.approve(vault.address, amount, {"from": user2})
     vault.deposit(amount, {"from": user2})
 
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(10 + distributor.timePerEpoch())
+    chain.mine(5)
 
     assert distributor.getUserRewards(user1) == distributor.targetBalance()
     assert distributor.getUserRewards(user2) == 0
 
     vault.harvest({"from": gov})
 
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(10 + distributor.timePerEpoch())
+    chain.mine(5)
 
     vault.harvest({"from": gov})
     
     # there will be some dust here so use pytest.approx
-    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 2e-3) == distributor.targetBalance()
+    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 2e-2) == distributor.targetBalance()
 
     distributor.harvest({"from": user1})
     distributor.harvest({"from": user2})
@@ -294,28 +294,28 @@ def test_operation_multiple_users_emergency_withdraw(chain, strategy, distributo
     token.approve(vault.address, amount, {"from": user2})
     vault.deposit(amount, {"from": user2})
 
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(10 + distributor.timePerEpoch())
+    chain.mine(5)
 
     assert distributor.getUserRewards(user1) == distributor.targetBalance()
     assert distributor.getUserRewards(user2) == 0
 
     vault.harvest({"from": gov})
 
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(10 + distributor.timePerEpoch())
+    chain.mine(5)
 
     vault.harvest({"from": gov})
     
     # there will be some dust here so use pytest.approx
-    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 1e-5) == distributor.targetBalance()
+    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 1e-2) == distributor.targetBalance()
 
     distributor.emergencyDisableVault({"from": gov})
     targetToken = interface.IERC20Extended(distributor.tokenOut())
     assert distributor.tokenOut() == conf['targetToken']
 
 
-    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 1e-5) == distributor.targetBalance()
+    assert pytest.approx(distributor.getUserRewards(user1) + distributor.getUserRewards(user2), rel = 1e-2) == distributor.targetBalance()
 
     user1TaretBefore = targetToken.balanceOf(user1)
     user2TaretBefore = targetToken.balanceOf(user2)

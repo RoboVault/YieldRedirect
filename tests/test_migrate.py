@@ -18,8 +18,8 @@ def test_migrate(StrategyLiquidDriver, Strategy0xDAO, StrategyBeethoven, vault, 
     vault.harvest({"from": gov})
 
     # chain.sleep(10000)
-    chain.sleep(distributor.timePerEpoch())
-    chain.mine(1)
+    chain.sleep(distributor.timePerEpoch() + 10)
+    chain.mine(5)
 
 
     vault.harvest({"from": gov})

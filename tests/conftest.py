@@ -52,15 +52,15 @@ CONFIG = {
     },
 
     'LQDRFTMyvUSDC': {
-        'token': '0xe7E90f5a767406efF87Fdad7EB07ef407922EC1D',
+        'token': '0x4Fe6f19031239F105F753D1DF8A0d24857D0cAA2',
         'targetToken' : _usdc,
         'targetVault' : yvUSDC,
         'farmAddress': lqdrMasterChef,
         'farmToken' : lqdr,
-        'router' : spookyRouter,
+        'router' : spiritRouter,
         'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
-        'pid' : 5,
-        'whale' : '0x717BDE1AA46a0Fcd937af339f95361331412C74C'
+        'pid' : 0,
+        'whale' : '0x9CB4A8A4757c8C14C7cAFB866E92624a0CF113bE'
     },
 
     'BOOFTMyvUSDC': {
@@ -118,7 +118,7 @@ CONFIG = {
 
 @pytest.fixture
 def conf():
-    yield CONFIG['BOOFTMyvUSDC']
+    yield CONFIG['BeetsFTMUSDCyvUSDC']
 
 @pytest.fixture
 def usdc():
@@ -241,7 +241,7 @@ def lp_price(token, token_price):
 
 @pytest.fixture
 def amount(accounts, token, user1, user2, conf):
-    amount = token.balanceOf(conf['whale']) * 0.01
+    amount = token.balanceOf(conf['whale']) * 0.4
     # In order to get some funds for the token you are about to use,
     # it impersonate an exchange address to use it's funds.
     # reserve = accounts.at("0x39B3bd37208CBaDE74D0fcBDBb12D606295b430a", force=True) # WFTM
@@ -249,7 +249,6 @@ def amount(accounts, token, user1, user2, conf):
     reserve = accounts.at(conf['whale'], force=True)
     token.transfer(user1, amount, {"from": reserve})
     token.transfer(user2, amount, {"from": reserve})
-
     yield amount
 
 @pytest.fixture
