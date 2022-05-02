@@ -5,6 +5,8 @@ from brownie import reverts
 def test_migrate(StrategyLiquidDriver, Strategy0xDAO, StrategyBeethoven, vault, strategy, distributor, chain, accounts, gov, token, user1, user2, strategist, amount, conf):
 
     targetToken = interface.IERC20Extended(distributor.tokenOut())
+    tokenRec = interface.IERC20Extended(distributor.targetToken())
+
     target_token_before = targetToken.balanceOf(user1)
     user_balance_before = token.balanceOf(user1)
     token.approve(vault.address, amount, {"from": user1})
@@ -24,13 +26,13 @@ def test_migrate(StrategyLiquidDriver, Strategy0xDAO, StrategyBeethoven, vault, 
 
     vault.harvest({"from": gov})
 
-    pendingRewards = distributor.getUserRewards(user1)
+    pendingRewards = distributor.getUserRewardsTarget(user1)
     print("Pending Rewards")
     print(pendingRewards)
     distributor.harvest({"from": user1})
 
-    assert distributor.getUserRewards(user1) == 0 
-    assert (targetToken.balanceOf(user1) - target_token_before) == pendingRewards
+    assert distributor.getUserRewardsTarget(user1) == 0 
+    assert pytest.approx((tokenRec.balanceOf(user1) - target_token_before), rel = 1e-3) == pendingRewards
 
     # ensure all earned tokens were paid out
     assert distributor.targetBalance() == 0 
@@ -58,15 +60,15 @@ def test_migrate(StrategyLiquidDriver, Strategy0xDAO, StrategyBeethoven, vault, 
     chain.sleep(distributor.timePerEpoch())
     chain.mine(1)
     vault.harvest({"from": gov})
-    pendingRewards = distributor.getUserRewards(user1)
+    pendingRewards = distributor.getUserRewardsTarget(user1)
     print("Pending Rewards")
     print(pendingRewards)
-    target_token_before = targetToken.balanceOf(user1)
+    target_token_before = tokenRec.balanceOf(user1)
 
     distributor.harvest({"from": user1})
 
-    assert distributor.getUserRewards(user1) == 0 
-    assert (targetToken.balanceOf(user1) - target_token_before) == pendingRewards
+    assert distributor.getUserRewardsTarget(user1) == 0 
+    assert pytest.approx((tokenRec.balanceOf(user1) - target_token_before), rel = 1e-3) == pendingRewards
 
     # ensure all earned tokens were paid out
     assert distributor.targetBalance() == 0 
