@@ -12,7 +12,7 @@ def test_migrate(StrategyLiquidDriver, Strategy0xDAO, StrategyBeethoven, vault, 
     token.approve(vault.address, amount, {"from": user1})
     vault.deposit(amount, {"from": user1})
     assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
+    assert vault.totalBalance() ==  amount
 
     chain.sleep(10)
     chain.mine(1)

@@ -9,7 +9,7 @@ def test_transfer_not_supported(vault, strategy, token, amount, user1, user2):
     vault.deposit(amount, {"from": user1})
 
     assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
+    assert vault.totalBalance() ==  amount
 
     with reverts():
         vault.transfer(user2, vault.balanceOf(user1), {'from': user1})

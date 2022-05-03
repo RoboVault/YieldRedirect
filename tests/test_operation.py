@@ -9,7 +9,7 @@ def test_deposit_withdraw(vault, strategy, token, amount, user1, user2):
     vault.deposit(amount, {"from": user1})
 
     assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
+    assert vault.totalBalance() ==  amount
 
     with reverts() : 
         vault.withdraw(amount, {"from": user2})
@@ -32,7 +32,7 @@ def test_operation_harvest(vault, strategy, distributor, chain, accounts, gov, t
     token.approve(vault.address, amount, {"from": user1})
     vault.deposit(amount, {"from": user1})
     assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
+    assert vault.totalBalance() ==  amount
 
     chain.sleep(10)
     chain.mine(1)
@@ -75,7 +75,7 @@ def test_operation_emergency_withdraw(vault, strategy, distributor, chain, accou
     token.approve(vault.address, amount, {"from": user1})
     vault.deposit(amount, {"from": user1})
     assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
+    assert vault.totalBalance() ==  amount
 
     chain.sleep(10)
     chain.mine(1)
@@ -115,7 +115,7 @@ def test_operation_sweep_emergency_withdraw(vault, strategy, distributor, chain,
     token.approve(vault.address, amount, {"from": user1})
     vault.deposit(amount, {"from": user1})
     assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
+    assert vault.totalBalance() ==  amount
 
     chain.sleep(10)
     chain.mine(1)
@@ -153,7 +153,7 @@ def test_operation_disable_vault(vault, strategy, distributor, chain, accounts, 
     token.approve(vault.address, amount, {"from": user1})
     vault.deposit(amount, {"from": user1})
     assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
+    assert vault.totalBalance() ==  amount
 
     chain.sleep(10)
     chain.mine(1)
@@ -250,7 +250,7 @@ def test_operation_multiple_users(chain, strategy, distributor, gov, token, vaul
     token.approve(vault.address, amount, {"from": user1})
     vault.deposit(amount, {"from": user1})
     assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
+    assert vault.totalBalance() ==  amount
 
     chain.sleep(10)
     chain.mine(1)
@@ -301,7 +301,7 @@ def test_operation_multiple_users_emergency_withdraw(chain, strategy, distributo
     token.approve(vault.address, amount, {"from": user1})
     vault.deposit(amount, {"from": user1})
     assert token.balanceOf(user1) == user_balance_before - amount 
-    assert vault.balance() ==  amount
+    assert vault.totalBalance() ==  amount
 
     chain.sleep(10)
     chain.mine(1)
@@ -387,7 +387,7 @@ def test_authorization(chain, strategy, distributor, gov, token, vault, user1, u
 
     # after deactivating funds should be removed from farm 
     assert token.balanceOf(distributor) == amount
-    assert vault.balance() ==  amount
+    assert vault.totalBalance() ==  amount
     vault.withdraw(amount, {"from": user1})
     assert token.balanceOf(user1) == user_balance_before
     """
