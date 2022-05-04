@@ -3,7 +3,7 @@ from brownie import RedirectVault, RewardDistributor, Strategy0xDAO, StrategyLiq
 
 def flatten(c):
     print(c)
-    f = open("../flattened/flat{}.sol".format(c._name), "w")
+    f = open("./flattened/flat{}.sol".format(c._name), "w")
     c.get_verification_info()
     f.write(c._flattener.flattened_source)
     f.close()

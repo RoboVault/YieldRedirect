@@ -2664,7 +2664,16 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     /// @param _rewards amount of the tokenOut needs to be sent to the user
     /// @param _user the user calling harvest()
     function _disburseRewards(address _user, uint256 _rewards) internal {
-        tokenOut.transfer(_user, _rewards);
+        if (useTargetVault) {
+            uint256 balBefore = targetToken.balanceOf(address(this));
+            IVault(address(targetVault)).withdraw(_rewards);
+            uint256 balAfer = targetToken.balanceOf(address(this));
+            uint256 amountOut = balAfer.sub(balBefore);
+            targetToken.transfer(_user, amountOut);
+        } else {
+            tokenOut.transfer(_user, _rewards);
+        }
+
         _updateAmountClaimed(_user, _rewards);
     }
 
@@ -2691,6 +2700,19 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
             }
         }
         return (rewards);
+    }
+
+    /// @notice Returns the user rewards in the targetToken()
+    /// @param _user user address
+    function getUserRewardsTarget(address _user) public view returns (uint256) {
+        uint256 pending = getUserRewards(_user);
+        if (useTargetVault) {
+            uint256 _sharePrice = IVault(address(targetVault)).pricePerShare();
+            uint256 _sharePriceAdj = 10 **
+                (IVault(address(targetVault)).decimals());
+            return (pending.mul(_sharePrice).div(_sharePriceAdj));
+        }
+        return (pending);
     }
 
     /// @notice helper function to calculate a users reward for a give epoch
@@ -2924,9 +2946,14 @@ contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
     /// @notice It calculates the total underlying value of {token} held by the system.
     /// It takes into account the vault contract balance, the strategy contract balance
     ///  and the balance deployed in other contracts as part of the strategy.
-    function balance() public view returns (uint256) {
+    function totalBalance() public view returns (uint256) {
         return
             token.balanceOf(address(this)).add(IStrategy(strategy).balanceOf());
+    }
+
+    /// @notice Returns the version string
+    function version() public view returns (string memory) {
+        return "V0.2";
     }
 
     /// @notice Custom logic in here for how much the vault allows to be borrowed.
@@ -2941,14 +2968,18 @@ contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
     /// Returns an uint256 with 18 decimals of how much underlying asset one vault share represents.
     function getPricePerFullShare() public view returns (uint256) {
         return
-            totalSupply() == 0 ? 1e18 : balance().mul(1e18).div(totalSupply());
+            totalSupply() == 0
+                ? 1e18
+                : totalBalance().mul(1e18).div(totalSupply());
     }
 
     /// @notice Function for various UIs to display the current value of one of our yield tokens.
     /// Returns an uint256 with 18 decimals of how much underlying asset one vault share represents.
     function totalAssets() public view returns (uint256) {
         return
-            totalSupply() == 0 ? 1e18 : balance().mul(1e18).div(totalSupply());
+            totalSupply() == 0
+                ? 1e18
+                : totalBalance().mul(1e18).div(totalSupply());
     }
 
     /// @notice A helper function to call deposit() with all the sender's funds.
@@ -2962,7 +2993,7 @@ contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
     /// 'burn-on-transaction' tokens.
     function deposit(uint256 _amount) public nonReentrant {
         require(_amount != 0, "please provide amount");
-        uint256 _pool = balance();
+        uint256 _pool = totalBalance();
         require(_pool.add(_amount) <= tvlCap, "vault is full!");
         uint256 _sharesBefore = balanceOf(msg.sender);
 
@@ -3001,7 +3032,7 @@ contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
     /// tokens are burned in the process.
     function withdraw(uint256 _shares) public nonReentrant {
         require(_shares > 0, "please provide amount");
-        uint256 r = (balance().mul(_shares)).div(totalSupply());
+        uint256 r = (totalBalance().mul(_shares)).div(totalSupply());
         _burn(msg.sender, _shares);
 
         uint256 b = token.balanceOf(address(this));
@@ -3025,7 +3056,7 @@ contract RedirectVault is ERC20NoTransfer, Authorized, ReentrancyGuard {
     function emergencyWithdrawAll() public nonReentrant {
         uint256 _shares = balanceOf(msg.sender);
         require(_shares > 0, "please provide amount");
-        uint256 r = (balance().mul(_shares)).div(totalSupply());
+        uint256 r = (totalBalance().mul(_shares)).div(totalSupply());
         _burn(msg.sender, _shares);
 
         uint256 b = token.balanceOf(address(this));

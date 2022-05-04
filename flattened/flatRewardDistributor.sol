@@ -2536,7 +2536,16 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
     /// @param _rewards amount of the tokenOut needs to be sent to the user
     /// @param _user the user calling harvest()
     function _disburseRewards(address _user, uint256 _rewards) internal {
-        tokenOut.transfer(_user, _rewards);
+        if (useTargetVault) {
+            uint256 balBefore = targetToken.balanceOf(address(this));
+            IVault(address(targetVault)).withdraw(_rewards);
+            uint256 balAfer = targetToken.balanceOf(address(this));
+            uint256 amountOut = balAfer.sub(balBefore);
+            targetToken.transfer(_user, amountOut);
+        } else {
+            tokenOut.transfer(_user, _rewards);
+        }
+
         _updateAmountClaimed(_user, _rewards);
     }
 
@@ -2563,6 +2572,19 @@ contract RewardDistributor is ReentrancyGuard, IRewardDistributor {
             }
         }
         return (rewards);
+    }
+
+    /// @notice Returns the user rewards in the targetToken()
+    /// @param _user user address
+    function getUserRewardsTarget(address _user) public view returns (uint256) {
+        uint256 pending = getUserRewards(_user);
+        if (useTargetVault) {
+            uint256 _sharePrice = IVault(address(targetVault)).pricePerShare();
+            uint256 _sharePriceAdj = 10 **
+                (IVault(address(targetVault)).decimals());
+            return (pending.mul(_sharePrice).div(_sharePriceAdj));
+        }
+        return (pending);
     }
 
     /// @notice helper function to calculate a users reward for a give epoch

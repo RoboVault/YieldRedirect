@@ -1203,6 +1203,8 @@ interface IMasterChefv2 {
         address to
     ) external;
 
+    function emergencyWithdraw(uint256 _pid, address _to) external;
+
     function deposit(
         uint256 pid,
         uint256 amount,
@@ -1452,18 +1454,37 @@ contract StrategyLiquidDriver is IStrategy, StrategyAuthorized, Pausable {
      * vault, ready to be migrated to the new strat.
      */
     function retireStrat() external onlyVault {
-        IMasterChef(masterChef).emergencyWithdraw(poolId);
+        uint256 pooledBalance = balanceOfPool();
+
+        if (pooledBalance > 0) {
+            IMasterChefv2(masterChef).withdraw(
+                poolId,
+                pooledBalance,
+                address(this)
+            );
+        }
 
         uint256 pairBal = IERC20(lpPair).balanceOf(address(this));
-        IERC20(lpPair).transfer(vault, pairBal);
+        if (pairBal > 0) {
+            IERC20(lpPair).transfer(vault, pairBal);
+        }
     }
 
     /**
      * @dev Pauses deposits. Withdraws all funds from the masterChef, leaving rewards behind
      */
+
+    function emergencyWithdraw() external onlyAuthorized {
+        IMasterChefv2(masterChef).emergencyWithdraw(poolId, address(this));
+    }
+
     function panic() public onlyAuthorized {
         pause();
-        IMasterChef(masterChef).withdraw(poolId, balanceOfPool());
+        IMasterChefv2(masterChef).withdraw(
+            poolId,
+            balanceOfPool(),
+            address(this)
+        );
     }
 
     /**

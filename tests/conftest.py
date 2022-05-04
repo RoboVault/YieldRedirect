@@ -60,7 +60,7 @@ CONFIG = {
         'router' : spiritRouter,
         'weth' : '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83',
         'pid' : 0,
-        'whale' : '0x9CB4A8A4757c8C14C7cAFB866E92624a0CF113bE'
+        'whale' : '0x717BDE1AA46a0Fcd937af339f95361331412C74C'
     },
 
     'BOOFTMyvUSDC': {
@@ -118,7 +118,7 @@ CONFIG = {
 
 @pytest.fixture
 def conf():
-    yield CONFIG['BeetsFTMUSDCyvUSDC']
+    yield CONFIG['LQDRFTMyvUSDC']
 
 @pytest.fixture
 def usdc():
@@ -128,21 +128,17 @@ def usdc():
 def reward_token(conf):
     yield interface.IERC20(conf['farmToken'])
 
-"""
 @pytest.fixture
 def router(conf):
     yield Contract(conf['router'])
-"""
 
 @pytest.fixture
 def pid(conf):
     yield conf['pid']
 
-
 @pytest.fixture
 def gov(accounts):
     yield accounts.at("0x7601630eC802952ba1ED2B6e4db16F699A0a5A87", force=True)
-
 
 @pytest.fixture
 def user1(accounts):
@@ -152,31 +148,25 @@ def user1(accounts):
 def user2(accounts):
     yield accounts[6]
 
-
 @pytest.fixture
 def rewards(accounts):
     yield accounts[1]
-
 
 @pytest.fixture
 def guardian(accounts):
     yield accounts[2]
 
-
 @pytest.fixture
 def management(accounts):
     yield accounts[3]
-
 
 @pytest.fixture
 def strategist(accounts):
     yield accounts[4]
 
-
 @pytest.fixture
 def keeper(accounts):
     yield accounts[5]
-
 
 @pytest.fixture
 def token(conf):
@@ -187,7 +177,6 @@ def token(conf):
     else : 
         token = interface.IUniswapV2Pair(conf['token'])
     yield interface.IUniswapV2Pair(conf['token'])
-
 
 ## Price utility functions
 @pytest.fixture
@@ -204,7 +193,6 @@ def get_path(weth):
         return path
     yield get_path
 
-"""
 @pytest.fixture
 def token_price(router, usdc, get_path):
     def token_price(token, decimals):
@@ -237,11 +225,11 @@ def lp_price(token, token_price):
                    (reserves[1] / (10 ** token1.decimals()) * price1))
     price = totalAssets / totalSupply 
     yield price
-"""
 
 @pytest.fixture
-def amount(accounts, token, user1, user2, conf):
-    amount = token.balanceOf(conf['whale']) * 0.4
+def amount(accounts, token, lp_price, user1, user2, conf):
+    amount = int((1000000 / lp_price) * (10 ** token.decimals()))
+    # amount = token.balanceOf(conf['whale']) * 0.4
     # In order to get some funds for the token you are about to use,
     # it impersonate an exchange address to use it's funds.
     # reserve = accounts.at("0x39B3bd37208CBaDE74D0fcBDBb12D606295b430a", force=True) # WFTM
